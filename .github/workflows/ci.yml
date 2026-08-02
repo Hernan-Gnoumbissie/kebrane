@@ -99,10 +99,15 @@ jobs:
         run: pnpm --filter @kebrane/germanpass db:deploy
 
       # --- Qualité ----------------------------------------------------------
+      # ⚠ `--ui=stream` est OBLIGATOIRE ici. `turbo.json` demande l'interface
+      # `tui`, qui exige un vrai terminal : quand la sortie est redirigée — ce
+      # que fait tout runner CI — turbo se FIGE sans rien afficher, et le job
+      # part en timeout au bout de plusieurs minutes sans le moindre indice.
+      # Constaté en local le 2 août 2026 avant que la CI n'existe.
       - name: Typecheck, lint, build, tests
-        run: pnpm turbo typecheck lint build test
+        run: pnpm turbo typecheck lint build test --ui=stream
 
       # Le smoke démarre le serveur de production du hub : il exige le build,
       # que turbo a déjà produit (`dependsOn: ["build"]`).
       - name: Smoke du hub
-        run: pnpm turbo smoke
+        run: pnpm turbo smoke --ui=stream

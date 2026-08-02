@@ -416,6 +416,27 @@ n'a rien eu à changer). Le fichier reste utile comme **filet explicite** — il
 du réglage local de chaque poste — et épingle `.sh`/`Dockerfile`/`.conf` en LF jusque dans la
 copie de travail.
 
+**Deux pièges de turbo, trouvés en se vérifiant soi-même.**
+1. *Le TUI se fige quand la sortie est redirigée.* `turbo.json` demande `"ui": "tui"`, qui
+   exige un vrai terminal. Redirigée — ce que fait **tout runner CI** — la commande reste
+   bloquée sans rien afficher, et le job part en timeout sans le moindre indice. D'où
+   `--ui=stream` **obligatoire** dans le workflow (les deux étapes).
+2. *Un test caché n'est pas un test passé.* La première vérification globale a affiché
+   « 11/11 réussis » alors que les deux tâches `test` étaient des **cache hits rejoués** :
+   turbo réaffichait la sortie d'une exécution précédente. Or les tests de Core dépendent
+   d'une **base vivante**, que la clé de cache — qui ne voit que des fichiers — ignore
+   totalement. Un vert rejoué peut donc masquer une régression bien réelle (schéma migré,
+   données divergentes). `test` est désormais en `cache: false`.
+
+**Vérifié** (2 août 2026, après correction des deux pièges ci-dessus) :
+- `pnpm turbo typecheck lint build test --ui=stream` → **11/11 tâches**, sur les deux apps et
+  les paquets.
+- `pnpm turbo test --ui=stream` **sans cache** → **125 tests verts** (19 `@kebrane/core`
+  + 106 GermanPass), 0 échec, sortie 0. C'est cette exécution-là qui fait foi.
+- `pnpm --filter @kebrane/kebrane smoke` → **5/5**, dont `/hub` non connecté redirigé en 307
+  vers `/login?redirect_url=%2Fhub` et webhook Clerk non signé rejeté en 400.
+- Workflow CI : YAML valide, structure cohérente (14 assertions). **Toujours pas exécuté.**
+
 **`next-env.d.ts` : bruit accepté, pas un problème.** Il oscille entre la variante `build` et
 la variante `dev` selon la dernière commande lancée. L'ignorer casserait le `typecheck` sur
 une machine neuve (il ne dépend pas du build de sa propre app) ; on le laisse donc suivi, et
@@ -475,7 +496,7 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 ---
 
 ## Statut synthétique (2 août 2026)
-- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19**.
-- **Prochains** : KB-18 (tests/CI), KB-20 (rôles admin), puis KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
+- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée]**.
+- **Prochains** : KB-20 (rôles admin), puis KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
 - **Décisions PO ouvertes** : moyen de paiement (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026).

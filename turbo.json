@@ -20,7 +20,14 @@
       "dependsOn": ["^build", "db:generate", "^db:generate"]
     },
     "test": {
-      "dependsOn": ["^build", "db:generate", "^db:generate"]
+      "dependsOn": ["^build", "db:generate", "^db:generate"],
+      // Pas de cache : les tests de @kebrane/core parlent à une VRAIE base
+      // (c'est délibéré, voir packages/core/tests/helpers.ts). Or la clé de
+      // cache de turbo ne voit que des fichiers — elle ignore l'état de la
+      // base. Un « vert » rejoué depuis le cache peut donc masquer une
+      // régression bien réelle (schéma migré, données divergentes). Un test
+      // qui n'a pas tourné ne prouve rien.
+      "cache": false
     },
     "smoke": {
       "dependsOn": ["build"],
