@@ -1,0 +1,125 @@
+// @kebrane/db — schéma Prisma central Kebrane (un seul PostgreSQL).
+// Phase 2 : socle Core (compte unique, registre produits, accès, événements).
+// Frontière v0.2 : les produits n'accèdent à ce domaine QUE via @kebrane/core.
+
+// Sortie DÉDIÉE (et non le `@prisma/client` par défaut) : le monorepo est en
+// `node-linker=hoisted`, il n'existe donc qu'un seul `node_modules/@prisma/client`
+// pour tout le dépôt. Deux schémas (Core + GermanPass) qui y génèrent s'écrasent
+// l'un l'autre au dernier `prisma generate`. GermanPass garde `@prisma/client`,
+// Core prend `@kebrane/prisma-client`.
+//
+// La sortie vise le node_modules racine (comme le fait `@prisma/client` par
+// défaut) pour rester résolvable PAR SON NOM : c'est ce qui permet à Next de
+// l'externaliser (`serverExternalPackages`) au lieu de le bundler — un client
+// Prisma bundlé casse la résolution du moteur de requêtes.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/@kebrane/prisma-client"
+}
+
+// Variable dédiée (et NON `DATABASE_URL`) : les produits de la maison ont leur
+// propre base métier sur `DATABASE_URL` (ex. GermanPass -> daf_saas:55432).
+// Sans variable distincte, un produit qui importe @kebrane/core taperait sur SA
+// base au lieu de la base Core. Voir packages/db/src/index.ts.
+datasource db {
+  provider = "postgresql"
+  url      = env("KEBRANE_DATABASE_URL")
+}
+
+/// Compte Kebrane — identité unique « un compte, tous les produits ».
+/// L'identité Clerk (clerkUserId) est liée à ce compte, source de vérité métier.
+model Account {
+  id String @id @default(cuid())
+  /// NULLABLE à dessein (KB-17) : quand Clerk émet `user.deleted`, on DÉLIE le
+  /// compte au lieu de le supprimer — l'historique métier (accès, événements,
+  /// facturation à venir) doit survivre à la disparition de l'identité Clerk.
+  /// Une réinscription avec le même email re-relie le compte existant.
+  clerkUserId String?  @unique
+  email       String   @unique
+  name        String
+  role        Role     @default(MEMBER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accesses ProductAccess[]
+  events   Event[]
+
+  @@map("accounts")
+}
+
+enum Role {
+  MEMBER
+  STAFF
+  ADMIN
+}
+
+/// Registre des produits de la maison Kebrane (isolation métier par product_id).
+/// Chaque produit = une couleur d'accent (charte : « une couleur de conteneur par produit »).
+model Product {
+  id          String        @id @default(cuid())
+  slug        String        @unique // ex. "germanpass"
+  name        String // ex. "GermanPass"
+  tagline     String? // accroche courte
+  accentColor String? // HEX de l'accent produit (cadre Marine/Rouge)
+  url         String? // URL/sous-domaine du produit
+  status      ProductStatus @default(COMING_SOON)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  accesses ProductAccess[]
+
+  @@map("products")
+}
+
+enum ProductStatus {
+  ACTIVE
+  COMING_SOON
+  DISABLED
+}
+
+/// Accès d'un compte à un produit (statut/plan lus par le hub).
+model ProductAccess {
+  id        String       @id @default(cuid())
+  accountId String
+  productId String
+  status    AccessStatus @default(NONE)
+  plan      String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, productId])
+  @@map("product_access")
+}
+
+enum AccessStatus {
+  NONE
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+/// Journal d'événements/activité à 3 gravités (catalogue v0.2).
+model Event {
+  id        String        @id @default(cuid())
+  type      String // ex. "account.created", "product.opened"
+  severity  EventSeverity @default(INFO)
+  accountId String?
+  productId String?
+  data      Json?
+  createdAt DateTime      @default(now())
+
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([accountId])
+  @@index([type])
+  @@map("events")
+}
+
+enum EventSeverity {
+  INFO
+  IMPORTANT
+  ACTION_REQUIRED
+}

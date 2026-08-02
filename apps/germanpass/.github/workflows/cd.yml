@@ -1,0 +1,40 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/daf-saas
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose --profile prod build
+            docker compose --profile prod up -d
+            docker compose --profile prod exec -T app npx prisma migrate deploy
+      - name: Healthcheck
+        run: |
+          sleep 20
+          for i in $(seq 1 10); do
+            if curl -fsS "${{ secrets.DEPLOY_HEALTHCHECK_URL }}" > /dev/null; then
+              echo "Healthcheck OK"; exit 0
+            fi
+            echo "Attempt $i failed, retrying..."; sleep 10
+          done
+          echo "Healthcheck FAILED"; exit 1

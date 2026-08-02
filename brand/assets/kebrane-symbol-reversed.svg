@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Kebrane">
+  <rect width="120" height="120" rx="24" fill="#1F3352"/>
+  <g transform="translate(18 18) scale(0.7)">
+    <path d="M60 8 L108 112 L12 112 Z M46 112 L46 60 Q46 42 60 42 Q74 42 74 60 L74 112 Z" fill="#FFFFFF" fill-rule="evenodd"/>
+  </g>
+</svg>

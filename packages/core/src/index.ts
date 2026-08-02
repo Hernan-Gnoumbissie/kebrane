@@ -1,0 +1,218 @@
+// @kebrane/core — domaine transversal Kebrane.
+// SEULE porte d'accès des produits au domaine (frontière v0.2 : jamais les tables directement).
+import { db } from "@kebrane/db";
+import type { Account, Product, ProductAccess } from "@kebrane/db";
+import { AccessStatus, ProductStatus } from "@kebrane/db";
+import { PRODUCT_REGISTRY } from "./registry";
+
+export type { Account, Product, ProductAccess } from "@kebrane/db";
+export { AccessStatus, ProductStatus } from "@kebrane/db";
+export { PRODUCT_REGISTRY, type ProductDefinition } from "./registry";
+
+type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
+
+/** Slugs des produits de la maison (registre KB-09). */
+export const PRODUCT_SLUGS = {
+  germanpass: "germanpass",
+} as const;
+
+/** Comptes Kebrane — identité unique, liée à Clerk. */
+export const accounts = {
+  findByClerkUserId(clerkUserId: string): Promise<Account | null> {
+    return db.account.findUnique({ where: { clerkUserId } });
+  },
+
+  /** Résout (ou crée) le compte Kebrane d'un utilisateur Clerk. Idempotent. */
+  async getOrCreateForClerk(input: {
+    clerkUserId: string;
+    email: string;
+    name: string;
+  }): Promise<Account> {
+    const byClerk = await db.account.findUnique({ where: { clerkUserId: input.clerkUserId } });
+    if (byClerk) return byClerk;
+
+    const email = input.email.toLowerCase();
+    const byEmail = await db.account.findUnique({ where: { email } });
+    if (byEmail) {
+      const linked = await db.account.update({
+        where: { id: byEmail.id },
+        data: { clerkUserId: input.clerkUserId },
+      });
+      // Tracé : c'est par ce chemin qu'un compte délié (KB-17) retrouve une
+      // identité, et qu'un compte migré est rattaché à Clerk.
+      await events.log({
+        type: "account.clerk_linked",
+        severity: "IMPORTANT",
+        accountId: linked.id,
+        data: { from: byEmail.clerkUserId, to: input.clerkUserId },
+      });
+      return linked;
+    }
+
+    const created = await db.account.create({
+      data: { clerkUserId: input.clerkUserId, email, name: input.name },
+    });
+    await events.log({ type: "account.created", accountId: created.id });
+    return created;
+  },
+
+  /**
+   * Délie l'identité Clerk d'un compte (événement Clerk `user.deleted`, KB-17).
+   *
+   * On DÉLIE au lieu de supprimer : le compte Kebrane porte l'historique métier
+   * (accès produits, journal, facturation à venir), qui doit survivre à la
+   * disparition de l'identité Clerk. Une réinscription avec le même email
+   * repasse par `getOrCreateForClerk` et retrouve ce compte.
+   *
+   * Idempotent : si aucun compte n'est lié à ce `clerkUserId` (rejeu du
+   * webhook), rien n'est écrit et aucun événement n'est émis.
+   */
+  async unlinkClerk(clerkUserId: string): Promise<Account | null> {
+    const account = await db.account.findUnique({ where: { clerkUserId } });
+    if (!account) return null;
+
+    const unlinked = await db.account.update({
+      where: { id: account.id },
+      data: { clerkUserId: null },
+    });
+    await events.log({
+      type: "account.clerk_unlinked",
+      severity: "IMPORTANT",
+      accountId: account.id,
+      data: { clerkUserId },
+    });
+    return unlinked;
+  },
+};
+
+/** Registre des produits de la maison Kebrane. */
+export const products = {
+  list(): Promise<Product[]> {
+    return db.product.findMany({ orderBy: { createdAt: "asc" } });
+  },
+  bySlug(slug: string): Promise<Product | null> {
+    return db.product.findUnique({ where: { slug } });
+  },
+  /** Déclare/actualise un produit dans le registre (KB-09). Idempotent par slug. */
+  upsert(input: {
+    slug: string;
+    name: string;
+    tagline?: string | null;
+    accentColor?: string | null;
+    url?: string | null;
+    status?: ProductStatus;
+  }): Promise<Product> {
+    const data = {
+      name: input.name,
+      tagline: input.tagline ?? null,
+      accentColor: input.accentColor ?? null,
+      url: input.url ?? null,
+      status: input.status ?? ProductStatus.COMING_SOON,
+    };
+    return db.product.upsert({
+      where: { slug: input.slug },
+      update: data,
+      create: { slug: input.slug, ...data },
+    });
+  },
+
+  /**
+   * Applique le registre déclaratif (`PRODUCT_REGISTRY`) à la base : c'est le
+   * seed du catalogue produits (KB-09). Idempotent — rejouable à volonté.
+   */
+  async syncRegistry(): Promise<Product[]> {
+    const synced: Product[] = [];
+    for (const definition of PRODUCT_REGISTRY) {
+      synced.push(await products.upsert(definition));
+    }
+    return synced;
+  },
+};
+
+/** Accès compte ↔ produit (statut/plan lus par le hub, gating lu par les produits). */
+export const access = {
+  forAccount(accountId: string): Promise<(ProductAccess & { product: Product })[]> {
+    return db.productAccess.findMany({ where: { accountId }, include: { product: true } });
+  },
+  get(accountId: string, productId: string): Promise<ProductAccess | null> {
+    return db.productAccess.findUnique({
+      where: { accountId_productId: { accountId, productId } },
+    });
+  },
+
+  /** Accès d'un compte à un produit désigné par son slug (porte d'entrée des produits). */
+  async getBySlug(accountId: string, slug: string): Promise<ProductAccess | null> {
+    const product = await products.bySlug(slug);
+    if (!product) return null;
+    return access.get(accountId, product.id);
+  },
+
+  /**
+   * Reflète dans Core l'état d'accès détenu par le produit (statut + plan).
+   * Tant que `billing` n'est pas dans Core (KB-13), le produit reste la source
+   * de vérité de SON accès ; Core en garde le miroir pour le hub et le journal.
+   * Idempotent : n'écrit (et n'émet d'événement) que si l'état change.
+   */
+  async sync(input: {
+    accountId: string;
+    slug: string;
+    status: AccessStatus;
+    plan?: string | null;
+  }): Promise<ProductAccess | null> {
+    const product = await products.bySlug(input.slug);
+    if (!product) return null; // produit pas encore enregistré : rien à refléter.
+
+    const current = await access.get(input.accountId, product.id);
+    const plan = input.plan ?? null;
+    if (current && current.status === input.status && current.plan === plan) return current;
+
+    const updated = await db.productAccess.upsert({
+      where: { accountId_productId: { accountId: input.accountId, productId: product.id } },
+      update: { status: input.status, plan },
+      create: {
+        accountId: input.accountId,
+        productId: product.id,
+        status: input.status,
+        plan,
+      },
+    });
+
+    await events.log({
+      type: "product_access.changed",
+      severity: input.status === AccessStatus.ACTIVE ? "IMPORTANT" : "INFO",
+      accountId: input.accountId,
+      productId: product.id,
+      data: { from: current?.status ?? null, to: input.status, plan },
+    });
+
+    return updated;
+  },
+
+  /** Le compte a-t-il un accès actif au produit ? (crochet de gating côté produit) */
+  async isActive(accountId: string, slug: string): Promise<boolean> {
+    const row = await access.getBySlug(accountId, slug);
+    return row?.status === AccessStatus.ACTIVE;
+  },
+};
+
+/** Journal d'événements à 3 gravités (catalogue v0.2). */
+export const events = {
+  log(input: {
+    type: string;
+    severity?: Severity;
+    accountId?: string;
+    productId?: string;
+    data?: unknown;
+  }) {
+    return db.event.create({
+      data: {
+        type: input.type,
+        severity: input.severity ?? "INFO",
+        accountId: input.accountId,
+        productId: input.productId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: input.data as any,
+      },
+    });
+  },
+};

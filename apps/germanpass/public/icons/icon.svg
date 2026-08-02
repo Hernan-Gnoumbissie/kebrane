@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Icône GermanPass : bouclier (forme du logo) au drapeau allemand + coche, fond transparent -->
+  <defs>
+    <clipPath id="shield">
+      <path d="M120,104 Q188,118 256,92 Q324,118 392,104 V298 Q392,372 256,432 Q120,372 120,298 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#shield)">
+    <rect x="96" y="70" width="320" height="138" fill="#1A1A1A"/>
+    <rect x="96" y="208" width="320" height="112" fill="#DD0000"/>
+    <rect x="96" y="320" width="320" height="120" fill="#FFCE00"/>
+  </g>
+  <path d="M210,260 l34,36 l72,-92" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

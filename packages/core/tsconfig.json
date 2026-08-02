@@ -1,0 +1,4 @@
+{
+  "extends": "@kebrane/config/tsconfig.base.json",
+  "include": ["src"]
+}

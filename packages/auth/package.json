@@ -1,0 +1,24 @@
+{
+  "name": "@kebrane/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "dependencies": {
+    "@kebrane/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@clerk/nextjs": "^7",
+    "next": "^16",
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@kebrane/config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

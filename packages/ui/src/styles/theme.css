@@ -1,0 +1,99 @@
+/**
+ * Tokens de thème Kebrane — charte v1.1.
+ * Palette : Marine #1F3352 · Rouge #A5322C (accent RARE, ≤5%) · Ciel #A7C4DC ·
+ *           Sable #ECD8BE · Encre #1A1A1A · Gris #5C6672 · Papier #FBF9F5 · Blanc.
+ * Équilibre 60/25/10/5 (Marine+Papier / Neutres / Ciel+Sable / Rouge).
+ * Typo : Georgia. `--accent` (Rouge) surchargeable par produit.
+ * À importer dans le globals.css de chaque app APRÈS @tailwind :
+ *   @import "@kebrane/ui/styles.css";
+ */
+:root {
+  /* Papier (#FBF9F5) — fond par défaut, chaud */
+  --background: 40 43% 97%;
+  /* Encre (#1A1A1A) — texte courant */
+  --foreground: 0 0% 10%;
+
+  /* Blanc — cartes/surfaces */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+
+  --muted: 40 22% 93%;
+  /* Gris (#5C6672) — texte secondaire, légendes */
+  --muted-foreground: 212 11% 40%;
+
+  /* Line (#E7E3DC) */
+  --border: 38 18% 88%;
+  --input: 38 18% 88%;
+
+  /* Marine (#1F3352) — couleur mère */
+  --primary: 216 45% 22%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondaire neutre chaud */
+  --secondary: 40 22% 92%;
+  --secondary-foreground: 216 45% 22%;
+
+  /* Rouge (#A5322C) — accent RARE (dashes, règle d'or). Surchargeable par produit. */
+  --accent: 3 58% 41%;
+  --accent-foreground: 0 0% 100%;
+
+  /* Ciel (#A7C4DC) — états, liens */
+  --ciel: 208 45% 76%;
+  --ciel-foreground: 216 45% 22%;
+  /* Sable (#ECD8BE) — fonds chauds, respirations */
+  --sable: 35 55% 84%;
+  --sable-foreground: 0 0% 15%;
+
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 55% 32%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 45%;
+  --warning-foreground: 0 0% 12%;
+  --info: 208 45% 55%;
+  --info-foreground: 0 0% 100%;
+
+  /* Focus : Ciel (calme), fidèle au principe de retrait */
+  --ring: 208 45% 55%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Marine profond en fond */
+  --background: 216 45% 9%;
+  --foreground: 40 30% 96%;
+
+  --card: 216 42% 12%;
+  --card-foreground: 40 30% 96%;
+
+  --muted: 216 28% 18%;
+  --muted-foreground: 212 14% 68%;
+
+  --border: 216 28% 22%;
+  --input: 216 28% 22%;
+
+  --primary: 208 45% 72%;
+  --primary-foreground: 216 45% 10%;
+
+  --secondary: 216 28% 18%;
+  --secondary-foreground: 40 30% 96%;
+
+  --accent: 3 62% 55%;
+  --accent-foreground: 0 0% 100%;
+
+  --ciel: 208 45% 70%;
+  --ciel-foreground: 216 45% 10%;
+  --sable: 35 40% 70%;
+  --sable-foreground: 0 0% 12%;
+
+  --destructive: 0 62% 52%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 142 50% 46%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 55%;
+  --warning-foreground: 216 45% 10%;
+  --info: 208 45% 62%;
+  --info-foreground: 216 45% 10%;
+
+  --ring: 208 45% 62%;
+}

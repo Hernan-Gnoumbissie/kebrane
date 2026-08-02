@@ -1,0 +1,10 @@
+# Service worker généré par Serwist (build output, minifié)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+# Artefacts de build
+.next/
+out/
+build/
+next-env.d.ts

@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kebrane — Applications</title>
+<style>
+:root{--navy:#1F3352;--red:#A5322C;--ciel:#A7C4DC;--sable:#ECD8BE;--encre:#1A1A1A;--gris:#5C6672;--papier:#FBF9F5;--line:#E7E3DC;}
+*{box-sizing:border-box}body{margin:0;background:#EFECE6;color:var(--encre);font-family:Georgia,serif;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:54px 30px 100px}
+.kicker{letter-spacing:.34em;font-size:13px;color:var(--red);font-weight:bold;text-transform:uppercase}
+h1{font-size:34px;color:var(--navy);margin:.35em 0 .1em}.sub{font-style:italic;color:var(--gris);font-size:18px;margin:0 0 6px}
+.meta{color:var(--navy);font-size:14px}.hr{height:2px;background:var(--red);margin:22px 0 6px}
+h2{color:var(--navy);font-size:12px;letter-spacing:.2em;text-transform:uppercase;margin:56px 0 18px}h2 .d{color:var(--red);margin-right:8px}
+.stage{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+.shadow{box-shadow:0 12px 30px rgba(31,51,82,.16)}
+.cap{font-size:12px;color:var(--gris);margin-top:10px;text-align:center}
+
+/* Business cards */
+.card{width:340px;height:198px;border-radius:12px;overflow:hidden;position:relative}
+.card.front{background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.wm{color:#fff;font-size:26px;font-weight:bold;letter-spacing:.28em}
+.card.back{background:var(--papier);padding:26px 28px;display:flex;flex-direction:column;justify-content:space-between}
+.nm{font-size:20px;color:var(--navy);font-weight:bold}.rl{font-size:13px;color:var(--gris);letter-spacing:.04em}
+.ct{font-size:13px;color:var(--encre);line-height:1.7}
+.reddash{color:var(--red);font-weight:bold;margin-right:6px}
+
+/* Letterhead */
+.sheet{width:400px;background:#fff;border-radius:6px;padding:34px 36px;font-size:11px;color:var(--encre)}
+.lh-top{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--red);padding-bottom:12px}
+.lh-lock{display:flex;align-items:center;gap:10px}.lh-lock .wm{color:var(--navy);font-size:17px;letter-spacing:.22em;font-weight:bold}
+.lh-addr{font-size:9px;color:var(--gris);text-align:right;line-height:1.5}
+.lh-body{margin:22px 0;line-height:1.9}.lh-body .ln{height:8px;background:#EEEAE3;border-radius:3px;margin:8px 0}
+.lh-foot{border-top:1px solid var(--line);padding-top:10px;font-size:9px;color:var(--gris);display:flex;justify-content:space-between}
+
+/* Phone / GermanPass */
+.phone{width:300px;height:600px;border:11px solid #10202b;border-radius:40px;overflow:hidden;background:var(--papier);position:relative}
+.notch{height:26px;background:#10202b;border-radius:0 0 16px 16px;width:130px;margin:0 auto}
+.gp{padding:20px 20px 0}
+.gp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.gp-brand{display:flex;align-items:center;gap:9px}
+.pill{background:var(--navy);border-radius:26%;width:30px;height:30px;display:flex;align-items:center;justify-content:center}
+.gp-name{font-weight:bold;color:var(--navy);font-size:17px}
+.lang{font-size:11px;color:var(--gris);border:1px solid var(--line);border-radius:20px;padding:3px 9px}
+.hello{font-size:22px;color:var(--navy);font-weight:bold;margin:6px 0 2px}
+.hello + p{font-size:13px;color:var(--gris);margin:0 0 18px}
+.pcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.pcard .lab{font-size:12px;color:var(--gris);letter-spacing:.04em}
+.pcard .goal{font-size:18px;color:var(--navy);font-weight:bold;margin:2px 0 14px}
+.bar{height:10px;background:#E7EEF5;border-radius:6px;overflow:hidden}
+.bar > i{display:block;height:100%;width:50%;background:var(--ciel)}
+.steps{font-size:12px;color:var(--gris);margin-top:8px}
+.btn{display:block;width:100%;text-align:center;background:var(--navy);color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:bold;margin-top:16px}
+.btn2{display:block;width:100%;text-align:center;background:transparent;color:var(--navy);border:1px solid var(--navy);border-radius:12px;padding:12px;font-size:13px;margin-top:10px}
+.reassure{background:var(--sable);border-radius:12px;padding:13px 15px;font-size:12.5px;color:#5a4a30;margin-top:16px;line-height:1.5}
+.gp-foot{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:11px;color:var(--gris);font-style:italic}
+</style></head><body><div class="wrap">
+<div class="kicker">K E B R A N E</div><h1>Le système, vivant</h1>
+<p class="sub">Une carte, une lettre, un produit — mêmes formes, même voix, même retrait.</p>
+<p class="meta">Applications · démonstration</p><div class="hr"></div>
+
+<h2><span class="d">—</span>Carte de visite</h2>
+<div class="stage">
+  <div class="tile">
+    <div class="card front shadow">
+      <svg viewBox="0 0 120 126" width="52"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#fff"/></svg>
+      <div class="wm">KEBRANE</div>
+    </div><div class="cap">Recto</div>
+  </div>
+  <div class="tile">
+    <div class="card back shadow">
+      <svg viewBox="0 0 120 126" width="34"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+      <div>
+        <div class="nm">Profi</div><div class="rl">FONDATEUR</div>
+      </div>
+      <div class="ct"><span class="reddash">—</span>krespohernan5@gmail.com<br><span class="reddash">—</span>kebrane.com</div>
+    </div><div class="cap">Verso</div>
+  </div>
+</div>
+
+<h2><span class="d">—</span>En-tête</h2>
+<div class="stage">
+  <div class="tile">
+  <div class="sheet shadow">
+    <div class="lh-top">
+      <div class="lh-lock"><svg viewBox="0 0 120 126" width="26"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg><span class="wm">KEBRANE</span></div>
+      <div class="lh-addr">Cameroun · Allemagne<br>kebrane.com</div>
+    </div>
+    <div class="lh-body">
+      <div style="font-size:12px;color:var(--navy);font-weight:bold;margin-bottom:10px">Objet — Reconnaissance de diplôme</div>
+      <div class="ln" style="width:96%"></div><div class="ln" style="width:100%"></div><div class="ln" style="width:88%"></div>
+      <div class="ln" style="width:94%"></div><div class="ln" style="width:70%"></div>
+      <div style="height:10px"></div>
+      <div class="ln" style="width:92%"></div><div class="ln" style="width:82%"></div>
+    </div>
+    <div class="lh-foot"><span><i style="color:var(--red);font-style:normal;font-weight:bold">—</i> By Kebrane</span><span>1&nbsp;/&nbsp;1</span></div>
+  </div><div class="cap">Papier à en-tête A4</div>
+  </div>
+
+  <div class="tile">
+    <div class="phone shadow">
+      <div class="notch"></div>
+      <div class="gp">
+        <div class="gp-top">
+          <div class="gp-brand"><div class="pill"><svg viewBox="0 0 120 126" width="17"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#fff"/></svg></div><span class="gp-name">GermanPass</span></div>
+          <span class="lang">FR · DE</span>
+        </div>
+        <div class="hello">Bonjour Awa,</div>
+        <p>On avance à ton rythme. Voici où tu en es.</p>
+        <div class="pcard">
+          <div class="lab">TON PARCOURS VERS LE B1</div>
+          <div class="goal">Étape 3 sur 6 — Compréhension orale</div>
+          <div class="bar"><i></i></div>
+          <div class="steps">Tu as terminé la moitié du chemin. Il te reste trois étapes.</div>
+          <a class="btn">Reprendre là où tu t'es arrêté</a>
+          <a class="btn2">Voir toutes les étapes</a>
+        </div>
+        <div class="reassure">Pas de compte à rebours, pas de pression. Tu peux t'arrêter et revenir quand tu veux — tout est sauvegardé.</div>
+      </div>
+      <div class="gp-foot">By Kebrane</div>
+    </div><div class="cap">GermanPass — écran d'accueil</div>
+  </div>
+</div>
+
+<div style="border-top:3px solid var(--red);padding-top:14px;margin-top:52px;font-style:italic;color:var(--red);font-size:18px;max-width:760px">
+La même main a dessiné la carte et l'écran : le A ouvert, le Marine, Georgia, et une voix qui montre le chemin sans jamais retenir.</div>
+</div></body></html>

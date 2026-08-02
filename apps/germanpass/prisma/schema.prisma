@@ -1,0 +1,862 @@
+// daf-saas — schéma Prisma complet
+// PostgreSQL 16 + pgvector, pg_trgm, citext, pgcrypto
+// Les colonnes vector sont gérées via SQL brut (Unsupported) — voir docs/04-RAG.md
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, pg_trgm, citext, pgcrypto]
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING // inscrit, en attente de validation (preuve de paiement)
+  ACTIVE // accès valide jusqu'à accessUntil
+  EXPIRED // accès expiré
+  SUSPENDED // suspendu par admin
+  DELETED // suppression RGPD (anonymisé)
+}
+
+enum ExamProvider {
+  GOETHE
+  OSD
+  TELC
+  ECL
+  TESTDAF
+}
+
+enum Level {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum ExamSection {
+  LESEN
+  HOEREN
+  SCHREIBEN
+  SPRECHEN
+}
+
+enum TaskFormat {
+  MCQ_SINGLE
+  MCQ_MULTI
+  TRUE_FALSE
+  MATCHING
+  GAP_FILL
+  ORDERING
+  LETTER_FORMAL
+  LETTER_INFORMAL
+  ESSAY
+  FORUM_POST
+  PICTURE_DESCRIPTION
+  PRESENTATION
+  DIALOGUE_ROLEPLAY
+  PLANNING_TASK
+}
+
+enum AudioVariety {
+  DE
+  AT
+  CH
+}
+
+enum ContentStatus {
+  DRAFT // saisi/généré, non validé
+  PENDING_REVIEW // généré IA, en file de validation
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+enum SourceOrigin {
+  MANUAL // saisi par admin
+  AI_GENERATED // généré IA + RAG (validé avant publication)
+}
+
+enum PaymentProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum GenerationStatus {
+  QUEUED
+  RUNNING
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum AttemptKind {
+  PRACTICE
+  MOCK
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  EXPIRED
+  ABANDONED
+}
+
+enum SubmissionStatus {
+  PENDING // en attente de traitement
+  TRANSCRIBING // STT en cours (Sprechen)
+  EVALUATING // évaluation IA en cours
+  COMPLETED
+  FAILED
+  FLAGGED // signalé par le candidat → file de modération
+}
+
+enum CourseKind {
+  GRAMMAR
+  VOCABULARY
+  REDEMITTEL
+}
+
+enum LessonProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum AudioJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+// ============================================================
+// UTILISATEURS, PAIEMENT, AUDIT, IA
+// ============================================================
+
+/** Parcours commercial : complet ou préparation intensive examen (sans curriculum). */
+enum Plan {
+  FULL
+  EXAM_PREP
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique @db.Citext
+  passwordHash    String? // null si OAuth uniquement (legacy next-auth ; conservé pour migration bcrypt)
+  googleId        String?    @unique
+  // Identité Clerk (socle Kebrane). Résolution session Clerk -> user métier.
+  clerkUserId     String?    @unique
+  name            String
+  role            Role       @default(STUDENT)
+  status          UserStatus @default(PENDING)
+  accessUntil     DateTime? // fin d'accès (validation admin +7/+30/+90/+365 j)
+  emailVerifiedAt DateTime?
+  // RGPD
+  audioConsentAt  DateTime? // consentement enregistrement audio (Sprechen)
+  deletedAt       DateTime?
+  // Plafond IA mensuel (USD) ; null = défaut global AI_MONTHLY_BUDGET_USER_USD
+  aiBudgetUsd     Decimal?   @db.Decimal(8, 2)
+  localePref      String     @default("fr") // langue native : fr | en (aide, feedback)
+  // Objectif d'examen déclaré (filtrage doux des contenus) + parcours
+  targetProvider  ExamProvider?
+  targetLevel     Level?
+  currentLevel    Level      @default(A1) // niveau actuellement débloqué (progression)
+  plan            Plan       @default(FULL)
+  // Session unique : id de la session active ; toute connexion plus récente invalide les précédentes (anti-partage).
+  activeSessionId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  paymentProofs      PaymentProof[]
+  promoRedemptions   PromoRedemption[]
+  auditLogs          AuditLog[]
+  aiUsages           AiUsage[]
+  attempts           Attempt[]
+  writingSubmissions WritingSubmission[]
+  speakingSubmissions SpeakingSubmission[]
+  lessonProgress     LessonProgress[]
+  flashcardReviews   FlashcardReview[]
+  levelMastery       LevelMastery[]
+  documentsUploaded  Document[]          @relation("uploadedBy")
+  generations        AiGeneration[]      @relation("requestedBy")
+  reviewedProofs     PaymentProof[]      @relation("reviewedBy")
+
+  @@index([status, accessUntil])
+  @@map("users")
+}
+
+model LevelMastery {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level        Level
+  masteredAt   DateTime @default(now())
+  sessionCount Int
+  avgPct       Float
+
+  @@unique([userId, level])
+  @@map("level_mastery")
+}
+
+model PaymentProof {
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filePath     String // hors webroot
+  mimeType     String
+  fileSize     Int
+  note         String?
+  status       PaymentProofStatus @default(PENDING)
+  daysGranted  Int? // 7 | 30 | 90 | 365
+  reviewedById String?
+  reviewedBy   User?              @relation("reviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  rejectReason String?
+  createdAt    DateTime           @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("payment_proofs")
+}
+
+model PromoCode {
+  id          String            @id @default(cuid())
+  code        String            @unique @db.Citext
+  daysGranted Int
+  maxUses     Int               @default(1)
+  usedCount   Int               @default(0)
+  expiresAt   DateTime?
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  redemptions PromoRedemption[]
+
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id          String    @id @default(cuid())
+  promoCodeId String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redeemedAt  DateTime  @default(now())
+
+  @@unique([promoCodeId, userId])
+  @@map("promo_redemptions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String // ex. user.activate, proof.approve, content.publish
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model AiUsage {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind         String // generation | writing_eval | speaking_eval | embedding | tts | stt
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costUsd      Decimal  @default(0) @db.Decimal(10, 6)
+  latencyMs    Int      @default(0)
+  success      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([kind, createdAt])
+  @@map("ai_usage")
+}
+
+// ============================================================
+// BIBLIOTHÈQUE RAG
+// ============================================================
+
+model Document {
+  id           String         @id @default(cuid())
+  title        String
+  filePath     String
+  mimeType     String
+  fileSize     Int
+  level        Level?
+  status       DocumentStatus @default(UPLOADED)
+  errorMessage String?
+  uploadedById String?
+  uploadedBy   User?          @relation("uploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  chunks       DocumentChunk[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String                      @id @default(cuid())
+  documentId String
+  document   Document                    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  position   Int
+  content    String
+  tokenCount Int
+  // Embedding pgvector — dimension AI_EMBEDDING_DIMENSIONS (défaut 1536)
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime                    @default(now())
+
+  @@unique([documentId, position])
+  @@map("document_chunks")
+}
+
+model AiGeneration {
+  id            String           @id @default(cuid())
+  requestedById String?
+  requestedBy   User?            @relation("requestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  targetType    String // passage | question_set | writing_prompt | speaking_task | lesson
+  provider      ExamProvider?
+  level         Level
+  section       ExamSection?
+  taskFormat    TaskFormat?
+  params        Json // paramètres de génération (thème, longueur...)
+  ragChunkIds   String[] // chunks utilisés
+  rawOutput     Json? // sortie brute IA
+  similarityMax Float? // anti-copie : similarité max détectée
+  status        GenerationStatus @default(QUEUED)
+  rejectReason  String?
+  resultId      String? // id de l'entité créée après approbation
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@map("ai_generations")
+}
+
+// ============================================================
+// BLUEPRINTS & BANQUE DE CONTENU
+// ============================================================
+
+model ExamBlueprint {
+  id           String       @id @default(cuid())
+  provider     ExamProvider
+  level        Level
+  variant      String       @default("standard") // standard | hochschule | beruf...
+  title        String
+  // structure: { sections: [{ section, durationMin, parts: [{ partNumber, taskFormat, itemCount, points, maxListens? }] }] }
+  structure    Json
+  // scoringRules: { passThresholdPct, perSectionThresholdPct?, perSkillMinPct?, modular, rounding, oralSeparate? }
+  scoringRules Json
+  version      Int          @default(1)
+  active       Boolean      @default(true)
+  sourcesNote  String? // URLs officielles consultées (doc 02)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  mockExams MockExam[]
+  attempts  Attempt[]
+
+  @@unique([provider, level, variant, version])
+  @@index([provider, level, active])
+  @@map("exam_blueprints")
+}
+
+model Passage {
+  id           String        @id @default(cuid())
+  section      ExamSection // LESEN | HOEREN
+  level        Level
+  taskFormat   TaskFormat
+  title        String
+  body         String // texte du passage (ou transcript du script audio)
+  audioPath    String? // Hören
+  variety      AudioVariety? // de | at | ch (spécificité ÖSD)
+  maxListens   Int           @default(1)
+  sourceOrigin SourceOrigin  @default(MANUAL)
+  status       ContentStatus @default(DRAFT)
+  archived     Boolean       @default(false)
+  generationId String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  providers PassageProvider[]
+  questions Question[]
+  attempts  Attempt[]
+  audioJobs AudioJob[]
+
+  @@index([section, level, status, archived])
+  @@map("passages")
+}
+
+// Liaison passage ↔ providers compatibles
+model PassageProvider {
+  passageId String
+  passage   Passage      @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  provider  ExamProvider
+
+  @@id([passageId, provider])
+  @@map("passage_providers")
+}
+
+model Question {
+  id          String        @id @default(cuid())
+  passageId   String?
+  passage     Passage?      @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  section     ExamSection
+  level       Level
+  taskFormat  TaskFormat
+  prompt      String
+  explanation   String? // explication pédagogique en ALLEMAND (langue cible, après soumission)
+  explanationFr String? // traduction française
+  explanationEn String? // traduction anglaise (Cameroun bilingue)
+  points      Float         @default(1)
+  // metadata par format :
+  //  MATCHING: { pairs: [{ leftId, left, rightId, right }], distractors?: [{rightId, right}] }
+  //  GAP_FILL: { textWithGaps, gaps: [{ gapId, accepted: string[] }] }
+  //  ORDERING: { items: [{ itemId, text }], correctOrder: string[] }
+  //  TRUE_FALSE: { correct: boolean }
+  metadata    Json?
+  status      ContentStatus @default(DRAFT)
+  sourceOrigin SourceOrigin @default(MANUAL)
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  options       AnswerOption[]
+  attemptAnswers AttemptAnswer[]
+  mockExamItems MockExamItem[]
+
+  @@index([section, level, taskFormat, status])
+  @@index([passageId, position])
+  @@map("questions")
+}
+
+model AnswerOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false) // JAMAIS exposé au client avant soumission
+  position   Int      @default(0)
+
+  @@index([questionId, position])
+  @@map("answer_options")
+}
+
+model WritingPrompt {
+  id           String        @id @default(cuid())
+  provider     ExamProvider
+  level        Level
+  taskNumber   Int
+  taskFormat   TaskFormat // letter_formal | letter_informal | essay | forum_post
+  title        String
+  instructions String
+  minWords     Int?
+  maxWords     Int?
+  timeLimitMin Int
+  // criteria: [{ key, labelDe, labelFr, maxPoints, description }]
+  criteria     Json
+  status       ContentStatus @default(DRAFT)
+  sourceOrigin SourceOrigin  @default(MANUAL)
+  archived     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  submissions   WritingSubmission[]
+  mockExamItems MockExamItem[]
+
+  @@index([provider, level, status, archived])
+  @@map("writing_prompts")
+}
+
+model SpeakingTask {
+  id                String        @id @default(cuid())
+  provider          ExamProvider
+  level             Level
+  partNumber        Int
+  taskFormat        TaskFormat // picture_description | presentation | dialogue_roleplay | planning_task
+  title             String
+  instructions      String
+  prepTimeSec       Int           @default(0)
+  speakTimeSec      Int
+  stimulusImagePath String?
+  status            ContentStatus @default(DRAFT)
+  sourceOrigin      SourceOrigin  @default(MANUAL)
+  archived          Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  submissions   SpeakingSubmission[]
+  mockExamItems MockExamItem[]
+
+  @@index([provider, level, status, archived])
+  @@map("speaking_tasks")
+}
+
+// Jobs TTS (génération audio Hören, exemples leçons, flashcards)
+model AudioJob {
+  id         String         @id @default(cuid())
+  targetType String // passage | lesson | flashcard
+  passageId  String?
+  passage    Passage?       @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  targetId   String? // id générique (lesson/flashcard)
+  voice      String
+  variety    AudioVariety   @default(DE)
+  speed      Float          @default(1.0)
+  status     AudioJobStatus @default(QUEUED)
+  outputPath String?
+  error      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([status, createdAt])
+  @@map("audio_jobs")
+}
+
+// ============================================================
+// EXAMENS BLANCS
+// ============================================================
+
+model MockExam {
+  id          String        @id @default(cuid())
+  blueprintId String
+  blueprint   ExamBlueprint @relation(fields: [blueprintId], references: [id])
+  title       String
+  isPublished Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  sections MockExamSection[]
+  attempts Attempt[]
+
+  @@index([blueprintId, isPublished])
+  @@map("mock_exams")
+}
+
+model MockExamSection {
+  id          String      @id @default(cuid())
+  mockExamId  String
+  mockExam    MockExam    @relation(fields: [mockExamId], references: [id], onDelete: Cascade)
+  section     ExamSection
+  durationMin Int
+  position    Int
+
+  items MockExamItem[]
+
+  @@unique([mockExamId, section])
+  @@map("mock_exam_sections")
+}
+
+model MockExamItem {
+  id                String          @id @default(cuid())
+  sectionId         String
+  examSection       MockExamSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  questionId        String?
+  question          Question?       @relation(fields: [questionId], references: [id])
+  writingPromptId   String?
+  writingPrompt     WritingPrompt?  @relation(fields: [writingPromptId], references: [id])
+  speakingTaskId    String?
+  speakingTask      SpeakingTask?   @relation(fields: [speakingTaskId], references: [id])
+  partNumber        Int             @default(1)
+  position          Int
+
+  @@index([sectionId, position])
+  @@map("mock_exam_items")
+}
+
+// ============================================================
+// TENTATIVES & SOUMISSIONS
+// ============================================================
+
+model Attempt {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind             AttemptKind
+  blueprintId      String?
+  blueprint        ExamBlueprint? @relation(fields: [blueprintId], references: [id])
+  section          ExamSection? // practice ciblée
+  passageId        String?
+  passage          Passage?      @relation(fields: [passageId], references: [id])
+  mockExamId       String?
+  mockExam         MockExam?     @relation(fields: [mockExamId], references: [id])
+  status           AttemptStatus @default(IN_PROGRESS)
+  // scores: { total, pct, perSection: {...}, verdict: "bestanden"|"nicht_bestanden" }
+  scores           Json?
+  // sectionDeadlines: { LESEN: iso, HOEREN: iso, ... } — vérité serveur, tolérance +5 s
+  sectionDeadlines Json?
+  currentSection   ExamSection?
+  startedAt        DateTime      @default(now())
+  submittedAt      DateTime?
+
+  answers      AttemptAnswer[]
+  listenEvents ListenEvent[]
+  writingSubmissions  WritingSubmission[]
+  speakingSubmissions SpeakingSubmission[]
+
+  @@index([userId, kind, status, startedAt])
+  @@map("attempts")
+}
+
+model AttemptAnswer {
+  id         String   @id @default(cuid())
+  attemptId  String
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  // response: format selon taskFormat — { optionIds } | { value: bool } | { pairs } | { gaps } | { order }
+  response   Json
+  isCorrect  Boolean?
+  pointsAwarded Float?
+  gradedAt   DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@map("attempt_answers")
+}
+
+model ListenEvent {
+  id        String   @id @default(cuid())
+  attemptId String
+  attempt   Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  passageId String
+  createdAt DateTime @default(now())
+
+  @@index([attemptId, passageId])
+  @@map("listen_events")
+}
+
+model WritingSubmission {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptId       String?
+  attempt         Attempt?         @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  writingPromptId String
+  writingPrompt   WritingPrompt    @relation(fields: [writingPromptId], references: [id])
+  text            String
+  wordCount       Int
+  status          SubmissionStatus @default(PENDING)
+  // scores: { perCriterion: [{key, score, max}], totalPoints, providerScale, estimatedLevel }
+  scores          Json?
+  // feedback: { errors: [{type, excerpt, correction, explanationFr}], recommendationsFr, summaryFr }
+  feedback        Json?
+  error           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("writing_submissions")
+}
+
+model SpeakingSubmission {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptId      String?
+  attempt        Attempt?         @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  speakingTaskId String
+  speakingTask   SpeakingTask     @relation(fields: [speakingTaskId], references: [id])
+  audioPath      String
+  durationSec    Int?
+  transcript     String?
+  status         SubmissionStatus @default(PENDING)
+  // scores: { taskAchievement, vocabulary, grammar, fluencyEstimate, totalIndicative }
+  scores         Json?
+  // feedback: { annotatedTranscript, metrics: {wpm, pauseRatio, repetitionRatio}, recommendationsFr }
+  feedback       Json?
+  flagReason     String? // signalement candidat → modération
+  error          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("speaking_submissions")
+}
+
+// ============================================================
+// APPRENTISSAGE (cours, vocabulaire, SRS)
+// ============================================================
+
+model Course {
+  id        String     @id @default(cuid())
+  level     Level
+  kind      CourseKind
+  title     String
+  description String?
+  position  Int        @default(0)
+  archived  Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  lessons Lesson[]
+
+  @@index([level, kind, archived, position])
+  @@map("courses")
+}
+
+model Lesson {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  contentMd String // Markdown en ALLEMAND niveaugerecht (langue cible)
+  helpFr    String? // aide pédagogique en français (repliable, à la demande)
+  helpEn    String? // aide pédagogique en anglais (repliable, à la demande)
+  audioPath String?
+  position  Int      @default(0)
+  status    ContentStatus @default(DRAFT)
+  sourceOrigin SourceOrigin @default(MANUAL)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercises LessonExercise[]
+  progress  LessonProgress[]
+
+  @@index([courseId, position])
+  @@map("lessons")
+}
+
+model LessonExercise {
+  id         String     @id @default(cuid())
+  lessonId   String
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  taskFormat TaskFormat // gap_fill | mcq_single | mcq_multi | ordering | matching | true_false
+  prompt     String
+  // metadata: même conventions que Question.metadata + { options: [{id, text, isCorrect}] } pour mcq
+  // isCorrect jamais exposé au client avant soumission (correction serveur)
+  metadata   Json
+  points     Float      @default(1)
+  isChapterTest Boolean @default(false) // mini-test de fin de chapitre (seuil 70 %)
+  position   Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([lessonId, position])
+  @@map("lesson_exercises")
+}
+
+model LessonProgress {
+  id          String               @id @default(cuid())
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  status      LessonProgressStatus @default(NOT_STARTED)
+  bestScore   Float? // % au mini-test
+  completedAt DateTime?
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId, status])
+  @@map("lesson_progress")
+}
+
+model VocabDeck {
+  id        String   @id @default(cuid())
+  level     Level
+  theme     String // Alltag, Arbeit, Gesundheit, Umwelt, Studium...
+  title     String
+  archived  Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flashcards Flashcard[]
+
+  @@index([level, archived, position])
+  @@map("vocab_decks")
+}
+
+model Flashcard {
+  id        String    @id @default(cuid())
+  deckId    String
+  deck      VocabDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  front     String // mot allemand
+  back      String // traduction FR
+  article   String? // der/die/das
+  plural    String?
+  exampleDe String
+  exampleFr String
+  audioPath String?
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  reviews FlashcardReview[]
+
+  @@index([deckId, position])
+  @@map("flashcards")
+}
+
+model FlashcardReview {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flashcardId String
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  // SM-2
+  easeFactor  Float     @default(2.5)
+  intervalDays Int      @default(0)
+  repetitions Int       @default(0)
+  dueAt       DateTime  @default(now())
+  lastQuality Int?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, flashcardId])
+  @@index([userId, dueAt])
+  @@map("flashcard_reviews")
+}
+
+enum ContactType {
+  PROBLEM
+  FEEDBACK
+  QUESTION
+}
+
+/** Messages envoyés depuis le formulaire de contact public (support + retours). */
+model ContactMessage {
+  id        String      @id @default(cuid())
+  name      String
+  email     String
+  type      ContactType @default(QUESTION)
+  message   String
+  handled   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([handled, createdAt])
+  @@map("contact_messages")
+}

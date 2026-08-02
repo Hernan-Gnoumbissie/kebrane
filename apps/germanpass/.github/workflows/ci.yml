@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: daf
+          POSTGRES_PASSWORD: daf_test
+          POSTGRES_DB: daf_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U daf"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://daf:daf_test@localhost:5432/daf_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: ci_test_secret_not_for_production_use
+      AUTH_URL: http://localhost:3000
+      STORAGE_DIR: ./storage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: DB extensions
+        run: |
+          PGPASSWORD=daf_test psql -h localhost -U daf -d daf_test -f scripts/init-db.sql
+      - name: Migrate
+        run: npx prisma migrate deploy
+      - name: Unit tests
+        run: npm test
+      - name: Integration tests
+        run: npm run test:integration

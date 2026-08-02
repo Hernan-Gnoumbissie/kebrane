@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kebrane — Charte graphique</title>
+<style>
+:root{--navy:#1F3352;--red:#A5322C;--ciel:#A7C4DC;--sable:#ECD8BE;--encre:#1A1A1A;--gris:#5C6672;--papier:#FBF9F5;--line:#E7E3DC;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papier);color:var(--encre);font-family:Georgia,'Times New Roman',serif;line-height:1.55;}
+.wrap{max-width:1060px;margin:0 auto;padding:56px 30px 90px;}
+.kicker{letter-spacing:.34em;font-size:13px;color:var(--red);font-weight:bold;text-transform:uppercase;}
+h1{font-size:36px;color:var(--navy);margin:.35em 0 .1em;}
+.sub{font-style:italic;color:var(--gris);margin:0 0 6px;font-size:18px;}
+.meta{color:var(--navy);font-size:14px;}
+.hr{height:2px;background:var(--red);margin:22px 0 8px;}
+h2{color:var(--navy);font-size:12px;letter-spacing:.2em;text-transform:uppercase;margin:60px 0 4px;}
+h2 .d{color:var(--red);margin-right:8px;}
+.lead{max-width:760px;color:var(--encre);}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:30px;margin:18px 0;}
+.logorow{display:flex;gap:40px;flex-wrap:wrap;align-items:center;justify-content:center;}
+.lockup{display:flex;align-items:center;gap:20px;}
+.wordmark{font-size:44px;font-weight:bold;letter-spacing:.14em;color:var(--navy);}
+.cap{font-size:12px;color:var(--gris);text-align:center;margin-top:10px;letter-spacing:.04em;}
+.tile{display:flex;flex-direction:column;align-items:center;}
+.rev{background:var(--navy);border-radius:16px;padding:22px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+@media(max-width:760px){.grid3,.grid4{grid-template-columns:repeat(2,1fr)}}
+.mis{border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center;position:relative;background:#fff;}
+.mis .x{position:absolute;top:8px;right:10px;color:var(--red);font-weight:bold;font-size:18px;}
+.mis .cap{margin-top:8px}
+.sw{border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+.sw .chip{height:120px;display:flex;align-items:flex-end;justify-content:space-between;padding:12px 14px;}
+.sw .info{padding:12px 14px;background:#fff;}
+.sw .nm{font-weight:bold;color:var(--navy);font-size:16px;}
+.sw .hex{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--gris);letter-spacing:.03em;}
+.sw .role{font-size:13px;color:var(--gris);margin-top:6px;line-height:1.4;}
+.ratio{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin-top:14px;font-size:11px;color:#fff;}
+.ratio div{display:flex;align-items:center;justify-content:center;}
+.type-spec > *{margin:0}
+.golden{border-top:3px solid var(--red);padding-top:14px;margin-top:26px;font-style:italic;color:var(--red);font-size:19px;max-width:760px;}
+.small{font-size:13px;color:var(--gris)}
+.csbox{display:flex;gap:26px;align-items:center;flex-wrap:wrap;justify-content:center}
+.note{font-size:13px;color:var(--gris);max-width:820px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">K E B R A N E</div>
+  <h1>Charte graphique</h1>
+  <p class="sub">Le logo, les couleurs, la typographie — le système visuel, gouverné par le retrait.</p>
+  <p class="meta">Document fondateur · Version 1.1 (essentielle)</p>
+  <div class="hr"></div>
+  <p class="lead" style="margin-top:22px">Ce système applique au visuel ce que l'Identité verbale fixe pour la voix : <b>clair avant d'être élégant, sobre, jamais tapageur.</b> Le principe reste le même partout — le sens naît de ce qu'on retire. La barrière retirée est le dessin.</p>
+
+  <h2><span class="d">—</span>Le logo</h2>
+  <div class="panel">
+    <div class="logorow">
+      <div class="tile">
+        <svg viewBox="0 0 120 126" width="120" height="126"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+        <div class="cap">Le symbole — le A ouvert<br>(favicon, icône d'app, monogramme)</div>
+      </div>
+      <div class="tile">
+        <div class="lockup">
+          <svg viewBox="0 0 120 126" width="70" height="73"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+          <span class="wordmark">KEBRANE</span>
+        </div>
+        <div class="cap">Le logotype — symbole + nom en Georgia capitales</div>
+      </div>
+      <div class="tile">
+        <div class="rev">
+          <svg viewBox="0 0 120 126" width="86" height="90"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#FFFFFF"/></svg>
+        </div>
+        <div class="cap">Version réservée<br>(blanc sur navy)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="panel" style="text-align:center">
+      <div style="position:relative;display:inline-block;padding:22px;outline:1px dashed var(--ciel)">
+        <svg viewBox="0 0 120 126" width="60" height="63"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+      </div>
+      <div class="cap"><b>Zone de protection</b><br>Marge minimale = la largeur d'un pied de la lettre, sur les quatre côtés.</div>
+    </div>
+    <div class="panel" style="text-align:center">
+      <div style="display:flex;gap:16px;align-items:flex-end;justify-content:center;padding:14px 0">
+        <svg viewBox="0 0 120 126" width="48" height="50"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+        <svg viewBox="0 0 120 126" width="20" height="21"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+      </div>
+      <div class="cap"><b>Taille minimale</b><br>A nu : 24 px. Pastille : 16 px. En dessous de 24 px, uniquement la pastille.</div>
+    </div>
+    <div class="panel" style="text-align:center">
+      <div style="padding:14px 0">
+        <svg viewBox="0 0 120 126" width="56" height="59"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+      </div>
+      <div class="cap"><b>Une seule couleur</b><br>Le mark fonctionne en aplat navy, ou en blanc réservé. Jamais de dégradé, d'ombre ou de relief.</div>
+    </div>
+  </div>
+
+  <p class="small" style="margin-top:24px"><b>Ce qu'on ne fait jamais</b> — le logo se protège par le retrait, pas par l'ajout.</p>
+  <div class="grid4">
+    <div class="mis"><span class="x">✕</span>
+      <svg viewBox="0 0 120 126" width="52" height="55"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/><rect x="42" y="72" width="36" height="10" fill="#A5322C"/></svg>
+      <div class="cap">Ne pas remettre la barre.</div></div>
+    <div class="mis"><span class="x">✕</span>
+      <svg viewBox="0 0 120 126" width="52" height="55"><path d="M60 15 L104 111 L104 111 L16 111 Z" fill="#1F3352"/><path d="M60 15 L104 111 L16 111 Z" fill="#1F3352"/></svg>
+      <div class="cap">Ne pas boucher l'arche.</div></div>
+    <div class="mis"><span class="x">✕</span>
+      <svg viewBox="0 0 120 126" width="52" height="55"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#02F5A1"/></svg>
+      <div class="cap">Ne pas recolorer (néon, hors palette).</div></div>
+    <div class="mis"><span class="x">✕</span>
+      <svg viewBox="0 0 120 126" width="52" height="55" style="transform:rotate(18deg)"><path d="M60 15 L104 111 L74 111 L74 58 Q60 30 46 58 L46 111 L16 111 Z" fill="#1F3352"/></svg>
+      <div class="cap">Ne pas incliner ni déformer.</div></div>
+  </div>
+
+  <h2><span class="d">—</span>Usage &rarr; forme</h2>
+  <p class="lead">Le symbole change de forme selon la taille et le fond. On ne le sauve pas en ajoutant du détail, mais en choisissant la bonne forme pour chaque contexte.</p>
+  <div class="panel" style="padding:0;overflow:hidden">
+    <table style="border-collapse:collapse;width:100%">
+      <tr><td style="background:#1F3352;color:#fff;font-weight:bold;padding:11px 16px;font-size:14px;width:38%">Contexte / taille</td><td style="background:#1F3352;color:#fff;font-weight:bold;padding:11px 16px;font-size:14px">Forme &agrave; utiliser</td></tr>
+      <tr><td style="border-bottom:1px solid var(--line);padding:11px 16px;color:var(--navy);font-weight:bold">&ge; 96 px</td><td style="border-bottom:1px solid var(--line);padding:11px 16px">A nu (Marine ou blanc r&eacute;serv&eacute;)</td></tr>
+      <tr><td style="border-bottom:1px solid var(--line);padding:11px 16px;color:var(--navy);font-weight:bold">64 &ndash; 24 px</td><td style="border-bottom:1px solid var(--line);padding:11px 16px">A nu, seulement sur fond clair et uni</td></tr>
+      <tr><td style="border-bottom:1px solid var(--line);padding:11px 16px;color:var(--navy);font-weight:bold">&lt; 24 px</td><td style="border-bottom:1px solid var(--line);padding:11px 16px">Pastille (A blanc sur carr&eacute;/cercle Marine)</td></tr>
+      <tr><td style="border-bottom:1px solid var(--line);padding:11px 16px;color:var(--navy);font-weight:bold">Favicon (&le; 20 px)</td><td style="border-bottom:1px solid var(--line);padding:11px 16px">Pastille <b>pixel-optimis&eacute;e</b> (ouverture &eacute;largie)</td></tr>
+      <tr><td style="border-bottom:1px solid var(--line);padding:11px 16px;color:var(--navy);font-weight:bold">Fond charg&eacute; / photo</td><td style="border-bottom:1px solid var(--line);padding:11px 16px">Pastille, quelle que soit la taille</td></tr>
+      <tr><td style="border-bottom:1px solid var(--line);padding:11px 16px;color:var(--navy);font-weight:bold">Ic&ocirc;ne d'application</td><td style="border-bottom:1px solid var(--line);padding:11px 16px">Pastille</td></tr>
+      <tr><td style="padding:11px 16px;color:var(--navy);font-weight:bold">Avatar (r&eacute;seaux)</td><td style="padding:11px 16px">Pastille</td></tr>
+    </table>
+  </div>
+  <p class="note"><b>Favicon 16 px</b> &mdash; version d&eacute;di&eacute;e sur grille de 16 px : ouverture rectangulaire d'environ 3 px, sommet plat, jambes &eacute;paissies, pour que l'arche reste ouverte. &Agrave; n'employer qu'&agrave; 16&ndash;20 px.</p>
+
+  <h2><span class="d">—</span>Les couleurs</h2>
+  <p class="lead">Un cœur discipliné, quelques tons de service. Le navy porte la confiance ; le rouge ne sert que d'accent — jamais d'aplat dominant. Le bleu doux et le sable apportent le calme et la chaleur, sans hausser la voix.</p>
+  <p class="small" style="margin-top:22px"><b>Primaires</b></p>
+  <div class="grid4">
+    <div class="sw"><div class="chip" style="background:#1F3352"><span style="color:#fff;font-weight:bold">Marine</span></div><div class="info"><div class="nm">Marine</div><div class="hex">#1F3352</div><div class="role">Couleur mère. Titres, textes forts, fonds foncés. Contraste AAA sur papier.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#A5322C"><span style="color:#fff;font-weight:bold">Rouge</span></div><div class="info"><div class="nm">Rouge</div><div class="hex">#A5322C</div><div class="role">Accent rare : dashes, règle d'or, ligne rouge. Jamais pour du texte courant.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#A7C4DC"><span style="color:#1F3352;font-weight:bold">Ciel</span></div><div class="info"><div class="nm">Ciel</div><div class="hex">#A7C4DC</div><div class="role">Secondaire : calme, états, liens, réservé sur navy. Pas pour texte fin sur blanc.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#ECD8BE"><span style="color:#1F3352;font-weight:bold">Sable</span></div><div class="info"><div class="nm">Sable</div><div class="hex">#ECD8BE</div><div class="role">Secondaire chaud : fonds, respirations, blocs. Jamais pour du texte.</div></div></div>
+  </div>
+  <p class="small" style="margin-top:22px"><b>Neutres</b></p>
+  <div class="grid4">
+    <div class="sw"><div class="chip" style="background:#1A1A1A"><span style="color:#fff;font-weight:bold">Encre</span></div><div class="info"><div class="nm">Encre</div><div class="hex">#1A1A1A</div><div class="role">Texte courant.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#5C6672"><span style="color:#fff;font-weight:bold">Gris</span></div><div class="info"><div class="nm">Gris</div><div class="hex">#5C6672</div><div class="role">Texte secondaire, légendes.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#FBF9F5;border-bottom:1px solid #E7E3DC"><span style="color:#1F3352;font-weight:bold">Papier</span></div><div class="info"><div class="nm">Papier</div><div class="hex">#FBF9F5</div><div class="role">Fond par défaut, chaud et calme.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#FFFFFF;border-bottom:1px solid #E7E3DC"><span style="color:#1F3352;font-weight:bold">Blanc</span></div><div class="info"><div class="nm">Blanc</div><div class="hex">#FFFFFF</div><div class="role">Réserve, cartes, surfaces.</div></div></div>
+  </div>
+  <p class="small" style="margin-top:22px"><b>Équilibre</b> — le rouge ne dépasse jamais l'accent.</p>
+  <div class="ratio">
+    <div style="background:#1F3352;flex:60">60 · Marine + Papier</div>
+    <div style="background:#5C6672;flex:25">25 · Neutres</div>
+    <div style="background:#A7C4DC;flex:10;color:#1F3352">10 · Ciel/Sable</div>
+    <div style="background:#A5322C;flex:5">5</div>
+  </div>
+
+  <h2><span class="d">—</span>La typographie</h2>
+  <p class="lead">Une seule famille, éditoriale : <b>Georgia</b>. Empattements solides, œil chaleureux, lisible en petit corps — l'autorité institutionnelle sans le réflexe « défaut Word ». Elle porte titres, corps et citations.</p>
+  <div class="panel type-spec">
+    <div style="font-size:42px;font-weight:bold;letter-spacing:.16em;color:var(--navy)">K E B R A N E</div>
+    <div class="small">Display — capitales interlettrées, navy</div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
+    <div style="font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--navy);font-weight:bold">— Titre de section</div>
+    <div class="small">En-tête capitales, tiret rouge</div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
+    <div style="font-size:18px;color:var(--encre);max-width:640px">Corps de texte en Georgia. Une phrase courte, un mot simple, une idée à la fois. La clarté n'est pas un style, c'est un acte de respect.</div>
+    <div class="small" style="margin-top:6px">Corps — 11/16 pt, encre</div>
+    <div class="golden">La règle d'or, en italique, bordée de rouge.</div>
+  </div>
+  <p class="note">Une police d'interface sans-serif pourra compléter Georgia pour les contextes fonctionnels (formulaires, tableaux de bord) — à définir avec le premier produit. Georgia reste la voix éditoriale de la marque.</p>
+
+  <div class="golden" style="font-size:20px;margin-top:50px">Un logo Kebrane ne se remarque pas parce qu'il montre plus, mais parce qu'il a retiré ce qu'il fallait.</div>
+</div>
+</body>
+</html>

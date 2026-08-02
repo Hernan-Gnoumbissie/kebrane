@@ -1,0 +1,26 @@
+# Kebrane — services de développement (base unique + cache).
+# Démarrer : docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    container_name: kebrane-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kebrane
+      POSTGRES_PASSWORD: kebrane_dev_password
+      POSTGRES_DB: kebrane
+    # Ports hôte décalés pour cohabiter avec d'autres services (GermanPass, etc.)
+    ports:
+      - "55433:5432"
+    volumes:
+      - kebrane_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: kebrane-redis
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+
+volumes:
+  kebrane_pgdata:

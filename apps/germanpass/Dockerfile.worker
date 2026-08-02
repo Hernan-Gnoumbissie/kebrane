@@ -1,0 +1,10 @@
+# Worker asynchrone (ingestion RAG, TTS, pipeline Sprechen, cron expiration)
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+RUN npm ci
+COPY . .
+RUN npx prisma generate
+RUN mkdir -p /app/storage
+CMD ["npx", "tsx", "src/worker/index.ts"]

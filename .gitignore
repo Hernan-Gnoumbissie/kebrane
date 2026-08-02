@@ -1,0 +1,23 @@
+# deps
+node_modules
+.pnpm-store
+
+# builds
+.next
+dist
+out
+.turbo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# divers
+*.log
+.DS_Store
+*.tsbuildinfo
+
+# junk bureautique (LibreOffice/Office)
+*.tmp
+.~lock.*
