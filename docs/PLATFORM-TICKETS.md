@@ -350,16 +350,46 @@ et renseigner `CLERK_WEBHOOK_SIGNING_SECRET` dans `apps/kebrane`. ⚠ C'est un a
 - Smoke `apps/kebrane` : landing 200 ; `/hub` non connecté → 307.
 - Pipeline CI (GitHub Actions) : install pnpm, **génération Prisma déterministe (ordre des deux clients)**, puis `turbo typecheck lint build test` sur tout le workspace.
 - `turbo.json` : déclarer la dépendance de génération Prisma pour éviter la course entre les deux clients.
+- **Hygiène de dépôt (relevé au commit initial, 2 août 2026)** : (a) le dépôt est sur un FS
+  Windows et git convertit les fins de ligne en CRLF — poser un `.gitattributes`
+  (`* text=auto eol=lf`) avant que la CI Linux ne produise des diffs fantômes ; (b)
+  `apps/*/next-env.d.ts` **oscille** entre `.next/types/routes.d.ts` (après `build`) et
+  `.next/dev/types/routes.d.ts` (après `dev`) — bruit permanent dans `git status`, à trancher
+  (l'ignorer, ou figer la variante `build` puisque c'est celle que produit la CI).
 **Acceptation** : CI verte sur PR ; Core couvert ; génération Prisma reproductible en CI et au déploiement.
-**Fichiers** : `.github/workflows/*`, `turbo.json`, `packages/core/tests/*`.
+**Fichiers** : `.github/workflows/*`, `turbo.json`, `packages/core/tests/*`, `.gitattributes`.
 
 ### KB-19 · Cohérence landing ↔ registre produits
-**P3 · S · dépend de : KB-09**
+**P3 · S · dépend de : KB-09** — **Statut : fait (2 août 2026)**
 La landing (`apps/kebrane/src/app/page.tsx`) code les 4 produits **en dur**, alors que le hub lit le **registre Core**. Deux sources = dérive assurée.
-- La landing lit `products.list()` (source unique), avec repli statique si la base est indisponible.
-- Ajouter **TCF Canada**, **Permis Cameroun**, **Gestion Formation** au `PRODUCT_REGISTRY` en `COMING_SOON` (chacun sa couleur d'accent).
-**Acceptation** : landing et hub affichent le **même** catalogue ; plus aucun produit codé en dur.
+- [x] La landing lit `products.list()` (source unique), avec repli statique si la base est indisponible.
+- [x] Ajouter **TCF Canada**, **Permis Cameroun**, **Gestion Formation** au `PRODUCT_REGISTRY` en `COMING_SOON` (chacun sa couleur d'accent).
+**Acceptation** : [x] landing et hub affichent le **même** catalogue ; [x] plus aucun produit codé en dur.
 **Fichiers** : `packages/core/src/registry.ts`, `apps/kebrane/src/app/page.tsx`.
+
+**Le repli n'est pas « statique », c'est le registre déclaratif.** Un repli écrit à la main
+serait un troisième catalogue — donc le problème du ticket, en pire (il ne dériverait qu'en
+cas de panne, là où personne ne le verrait). La landing se rabat donc sur `PRODUCT_REGISTRY`,
+c'est-à-dire **exactement ce que le seed applique en base**. Base indisponible ⇒ la vitrine
+reste debout et ne peut structurellement pas mentir. Le repli couvre aussi le registre
+**vide** (seed jamais joué), pas seulement la base injoignable.
+
+**Trois produits entrent au registre** en `COMING_SOON` et **sans URL** (`url` devient
+optionnel dans `ProductDefinition` : un produit qui n'existe pas n'a pas d'adresse). Leurs
+accents reprennent ceux déjà choisis dans la landing — `#2E6F5E`, `#B8860B`, `#5C6672` —
+**provisoires**, même réserve PO que GermanPass. Effet attendu : ils apparaissent désormais
+aussi dans le **hub**, en « Bientôt ». C'est cohérent — le hub montre la maison entière, pas
+seulement ce que le membre a déjà.
+
+**Vérifié** : `typecheck` + `lint` + `build` verts. Recette en deux phases contre le serveur
+de dev (17 assertions vertes ; Next 16 refusant deux serveurs sur le même répertoire, les
+phases sont séquentielles) :
+1. *Base disponible* — la landing affiche les 4 produits du registre, l'URL de GermanPass,
+   et les deux badges. **Test décisif** : un 5ᵉ produit inséré **en base** apparaît sur la
+   landing, et disparaît quand on le retire. Sans lui, un catalogue en dur identique au
+   registre aurait passé la recette. Base rendue à son état initial.
+2. *Base injoignable* (`KEBRANE_DATABASE_URL` pointé sur un port mort) — la landing répond
+   quand même et affiche les 4 produits par le repli déclaratif.
 
 ### KB-20 · Attribution des rôles Kebrane (bootstrap admin)
 **P2 · M · dépend de : KB-06 · prérequis de KB-15**
@@ -383,7 +413,7 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 ---
 
 ## Statut synthétique (2 août 2026)
-- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17**.
-- **Prochains** : KB-19 (landing↔registre), KB-18 (tests/CI), KB-20 (rôles admin), puis KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
+- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19**.
+- **Prochains** : KB-18 (tests/CI), KB-20 (rôles admin), puis KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
 - **Décisions PO ouvertes** : moyen de paiement (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026).
