@@ -1,0 +1,108 @@
+# CI du monorepo Kebrane (KB-18).
+#
+# ⚠ Ce fichier remplace `apps/germanpass/.github/workflows/*`, qui n'a JAMAIS
+# tourné : GitHub ne lit `.github/` qu'à la RACINE du dépôt. Depuis le passage
+# en monorepo, la CI de GermanPass était donc inerte.
+#
+# Deux points structurants :
+#  1. **Deux clients Prisma** cohabitent (`@prisma/client` pour GermanPass,
+#     `@kebrane/prisma-client` pour Core). Ils sont générés EXPLICITEMENT et
+#     dans un ordre fixe avant toute compilation — pas laissés à un postinstall
+#     dont l'ordre dépend du graphe de dépendances.
+#  2. **Deux bases** sur la même instance : `kebrane` (Core) et `daf_test`
+#     (métier GermanPass, qui exige les extensions pgvector/pg_trgm/citext).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+# Une PR qui reçoit trois commits d'affilée n'occupe pas trois runners.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector plutôt que postgres nu : GermanPass déclare l'extension
+        # `vector` dans son schéma Prisma.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: kebrane
+          POSTGRES_PASSWORD: kebrane_ci
+          POSTGRES_DB: kebrane
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kebrane"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # --- Bases ---
+      KEBRANE_DATABASE_URL: postgresql://kebrane:kebrane_ci@localhost:5432/kebrane?schema=public
+      DATABASE_URL: postgresql://kebrane:kebrane_ci@localhost:5432/daf_test?schema=public
+      # --- GermanPass : seules les variables SANS valeur par défaut sont requises
+      #     (voir apps/germanpass/src/lib/env.ts) ---
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: ci_test_secret_not_for_production_use
+      STORAGE_DIR: ./storage
+      # --- Clerk : clés factices au FORMAT attendu. Le build et le smoke
+      #     instancient Clerk, qui refuse une clé malformée. La publishable key
+      #     encode son domaine en base64 ; aucune requête réseau n'est faite. ---
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      CLERK_SECRET_KEY: sk_test_ci_dummy_key_not_for_production
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # Version lue dans le champ `packageManager` de package.json.
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      # --- Clients Prisma : ordre EXPLICITE et déterministe -----------------
+      # Les deux schémas visent des sorties distinctes (KB-08), mais on ne
+      # s'en remet pas au hasard des postinstall : on génère nous-mêmes.
+      - name: Générer le client Prisma Core
+        run: pnpm --filter @kebrane/db db:generate
+
+      - name: Générer le client Prisma GermanPass
+        run: pnpm --filter @kebrane/germanpass db:generate
+
+      # --- Bases de données -------------------------------------------------
+      - name: Créer la base métier GermanPass + extensions
+        env:
+          PGPASSWORD: kebrane_ci
+        run: |
+          psql -h localhost -U kebrane -d kebrane -c 'CREATE DATABASE daf_test;'
+          psql -h localhost -U kebrane -d daf_test -f apps/germanpass/scripts/init-db.sql
+
+      - name: Appliquer les migrations Core
+        run: pnpm --filter @kebrane/db db:deploy
+
+      - name: Appliquer les migrations GermanPass
+        run: pnpm --filter @kebrane/germanpass db:deploy
+
+      # --- Qualité ----------------------------------------------------------
+      - name: Typecheck, lint, build, tests
+        run: pnpm turbo typecheck lint build test
+
+      # Le smoke démarre le serveur de production du hub : il exige le build,
+      # que turbo a déjà produit (`dependsOn: ["build"]`).
+      - name: Smoke du hub
+        run: pnpm turbo smoke

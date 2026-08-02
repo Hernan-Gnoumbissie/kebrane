@@ -344,7 +344,7 @@ et renseigner `CLERK_WEBHOOK_SIGNING_SECRET` dans `apps/kebrane`. ⚠ C'est un a
 **distinct** de celui de GermanPass : deux endpoints, deux secrets. À intégrer à KB-21.
 
 ### KB-18 · Tests & CI du monorepo
-**P2 · L · dépend de : KB-06**
+**P2 · L · dépend de : KB-06** — **Statut : fait côté code (2 août 2026) ; CI non prouvée (aucun remote git)**
 `@kebrane/core`, `@kebrane/auth` et `apps/kebrane` n'ont **aucun test** ; il n'y a **pas de CI**. Or la génération des **deux** clients Prisma (`@prisma/client` GermanPass + `@kebrane/prisma-client` Core) est sensible à l'ordre.
 - Tests unitaires `@kebrane/core` : `accounts.getOrCreateForClerk` (idempotence + liaison par email), `access.sync` (idempotence + événement émis), `products.syncRegistry`.
 - Smoke `apps/kebrane` : landing 200 ; `/hub` non connecté → 307.
@@ -356,8 +356,70 @@ et renseigner `CLERK_WEBHOOK_SIGNING_SECRET` dans `apps/kebrane`. ⚠ C'est un a
   `apps/*/next-env.d.ts` **oscille** entre `.next/types/routes.d.ts` (après `build`) et
   `.next/dev/types/routes.d.ts` (après `dev`) — bruit permanent dans `git status`, à trancher
   (l'ignorer, ou figer la variante `build` puisque c'est celle que produit la CI).
-**Acceptation** : CI verte sur PR ; Core couvert ; génération Prisma reproductible en CI et au déploiement.
+**Acceptation** : [~] CI verte sur PR (voir réserve ci-dessous) ; [x] Core couvert ; [x] génération Prisma reproductible en CI et au déploiement.
 **Fichiers** : `.github/workflows/*`, `turbo.json`, `packages/core/tests/*`, `.gitattributes`.
+
+**⚠ Réserve honnête : la CI n'a pas pu être prouvée.** Le dépôt n'a **aucun remote git**,
+donc aucun workflow ne peut s'exécuter depuis ce poste. Ce qui est vérifié : le YAML parse,
+et sa structure est cohérente (14 assertions — service `pgvector`, deux bases distinctes,
+clients Prisma générés dans l'ordre et **avant** toute compilation, migrations avant les
+tests, smoke après le build). Ce qui ne l'est pas : qu'un runner GitHub la passe au vert.
+**Le premier `git push` sera la vraie recette** — prévoir un aller-retour de correction.
+
+**La CI de GermanPass était morte.** `apps/germanpass/.github/workflows/{ci,cd}.yml` existe
+mais **GitHub ne lit `.github/` qu'à la racine du dépôt** : depuis le passage en monorepo,
+elle n'a jamais tourné. Elle est en outre restée en `npm ci` alors que le dépôt est en pnpm,
+et antérieure à Clerk. Le nouveau workflow racine la remplace ; **les deux fichiers inertes
+n'ont pas été supprimés** — c'est un geste destructif qui revient au PO, et `cd.yml` contient
+la procédure de déploiement du VPS, qui a de la valeur même inerte.
+
+**Tests `@kebrane/core` (19, verts).** Ils parlent à une **vraie** base, délibérément : ce
+qu'ils vérifient — idempotence, unicité, upsert, émission d'événement — EST du comportement
+de base de données ; le simuler ne prouverait que la fidélité du simulacre. Ils sont donc
+rejouables sur la base de dev sans la salir : identifiants uniques par exécution
+(`kb18.<label>.<horodatage>`) et nettoyage en `after()`.
+- `accounts` — création + journal une seule fois, idempotence sur rejeu, normalisation de
+  l'email, **réconciliation par email** (une nouvelle identité Clerk retrouve le compte
+  historique), et `unlinkClerk` de KB-17 (délie sans supprimer, idempotent).
+- `access.sync` — l'invariant central : **n'écrire et ne journaliser que si l'état change**
+  (un produit appelle `sync` très souvent, et le plus souvent pour rien) ; transition
+  journalisée en `IMPORTANT` avec `{from, to}` ; produit inconnu ⇒ `null` plutôt qu'une
+  erreur ; `isActive` vrai pour le seul statut ACTIVE.
+- `products` — `upsert` idempotent par slug et **déclaratif** (retirer une accroche du
+  registre la retire en base, sinon le seed ne converge pas) ; `syncRegistry` rejouable à
+  chaque déploiement sans recréer le catalogue ; cohérence du registre (slugs uniques,
+  accents HEX, tout produit ACTIVE a une URL).
+
+**Prouvés mordants.** Un test vert ne prouve rien tant qu'on n'a pas vu quelqu'un échouer :
+l'idempotence de `access.sync` a été **court-circuitée volontairement**, la suite est passée
+au rouge (`updatedAt` réécrit), puis le code a été restauré.
+
+**Smoke `apps/kebrane`** (`scripts/smoke.mjs`, tâche turbo `smoke`) : démarre le serveur de
+**production** et vérifie les trois portes d'entrée — landing 200 **et réellement rendue**,
+`/hub` non connecté en 307 vers `/login`, et webhook Clerk qui **rejette une requête non
+signée** (400). Il attrape ce qu'aucun test unitaire ne voit : proxy mal câblé, route
+disparue du build. Il n'exige **aucune base** (la landing a son repli KB-19, la redirection
+est prononcée par le proxy avant toute lecture).
+
+**Course entre les deux clients Prisma, tranchée dans `turbo.json`.** `build`, `typecheck`,
+`test` et `dev` dépendent désormais de `db:generate` **et** `^db:generate` — donc les deux
+clients (`@prisma/client` pour GermanPass, `@kebrane/prisma-client` pour Core) sont générés
+avant toute compilation, sans dépendre de l'ordre des `postinstall`. La tâche est en
+`cache: false` **volontairement** : sa sortie vit dans `node_modules/`, hors du répertoire du
+paquet — turbo ne saurait pas la restaurer, et un cache-hit laisserait une machine neuve
+sans client généré. La CI génère en outre les deux explicitement, dans un ordre fixe.
+
+**`.gitattributes`** (`* text=auto eol=lf`) : le dépôt est édité sous Windows et tourne sous
+Linux (CI, Docker, VPS). *Correction d'une alerte que j'avais moi-même mal posée* : l'historique
+n'a jamais contenu de CRLF (`core.autocrlf=true` faisait déjà le travail, et `--renormalize`
+n'a rien eu à changer). Le fichier reste utile comme **filet explicite** — il ne dépend plus
+du réglage local de chaque poste — et épingle `.sh`/`Dockerfile`/`.conf` en LF jusque dans la
+copie de travail.
+
+**`next-env.d.ts` : bruit accepté, pas un problème.** Il oscille entre la variante `build` et
+la variante `dev` selon la dernière commande lancée. L'ignorer casserait le `typecheck` sur
+une machine neuve (il ne dépend pas du build de sa propre app) ; on le laisse donc suivi, et
+on ignore ses allers-retours dans `git status`.
 
 ### KB-19 · Cohérence landing ↔ registre produits
 **P3 · S · dépend de : KB-09** — **Statut : fait (2 août 2026)**

@@ -1,0 +1,37 @@
+# Fins de ligne — normalisation LF dans le dépôt (KB-18).
+#
+# Le dépôt est édité sous Windows (`core.autocrlf=true` posé par Git for Windows)
+# mais tourne sous Linux : CI GitHub Actions, images Docker, VPS de déploiement.
+# Sans cette règle, des CRLF entrent dans l'historique — et un script shell dont
+# le shebang finit par `\r` échoue à l'exécution (« bad interpreter »).
+#
+# `text=auto eol=lf` : git décide seul ce qui est texte, et stocke TOUJOURS en LF.
+# La copie de travail reste en CRLF sous Windows, c'est transparent à l'édition.
+* text=auto eol=lf
+
+# Fichiers qui DOIVENT rester en LF même sur la copie de travail : ils sont lus
+# par un interpréteur Linux, jamais par un éditeur Windows.
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.conf text eol=lf
+
+# Binaires — aucune conversion (une seule substitution suffit à les corrompre).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.webm binary
+*.mp4 binary
+
+# Le lockfile est généré : pas de diff à lire, pas de conflit à résoudre à la main.
+pnpm-lock.yaml -diff linguist-generated=true
