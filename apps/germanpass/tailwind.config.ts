@@ -14,7 +14,7 @@ import kebranePreset from "@kebrane/config/tailwind-preset";
  * variable CSS, surchargeable sans toucher à la configuration Tailwind.
  */
 const config: Config = {
-  presets: [kebranePreset as Config],
+  presets: [kebranePreset],
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     container: {

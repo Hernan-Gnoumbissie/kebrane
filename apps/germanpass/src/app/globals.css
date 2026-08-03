@@ -6,30 +6,33 @@
  * Tokens de la maison Kebrane (KB-12) — GermanPass ne définit plus sa propre
  * palette. Avant, cette feuille portait les valeurs shadcn par défaut (primaire
  * bleue) : l'app n'avait aucun lien visuel avec la charte.
+ *
+ * Le thème est chargé depuis `layout.tsx` (`import "@kebrane/ui/styles.css"`),
+ * PAS par `@import` ici : `@tailwind base` se déploie en milliers de règles, et
+ * un `@import` placé après elles est rejeté par la spécification CSS — ce qui
+ * fait tomber la feuille ENTIÈRE, sans autre symptôme qu'une page sans styles.
+ *
+ * Accent produit de GermanPass — « une couleur de conteneur par produit ».
+ * Hors `@layer` À DESSEIN : les règles non layerées l'emportent sur les layerées,
+ * donc un override placé dans `@layer base` perdrait silencieusement contre les
+ * tokens de la charte, importés sans layer.
+ *
+ * ⚠ PROVISOIRE : la décision PO sur l'accent officiel (KB-02/09) n'est pas prise.
+ * On reprend le Rouge de la charte, comme le registre
+ * (`packages/core/src/registry.ts`) — changer les DEUX ensemble, sinon la
+ * pastille du hub et l'app afficheraient deux couleurs différentes.
+ *
+ * Rappel de charte : l'accent est RARE (≤5 % de la surface). Il ne sert pas aux
+ * survols — ceux-ci utilisent `secondary`.
  */
-@import "@kebrane/ui/styles.css";
+:root {
+  --accent: 3 58% 41%; /* #A5322C */
+  --accent-foreground: 0 0% 100%;
+}
 
-@layer base {
-  :root {
-    /**
-     * Accent produit de GermanPass — « une couleur de conteneur par produit ».
-     *
-     * ⚠ PROVISOIRE : la décision PO sur l'accent officiel (KB-02/09) n'est pas
-     * prise. On reprend le Rouge de la charte, comme le fait le registre
-     * (`packages/core/src/registry.ts`). Changer les DEUX ensemble, sinon la
-     * pastille du hub et l'app afficheraient deux couleurs différentes.
-     *
-     * Rappel de charte : l'accent est RARE (≤5 % de la surface). Il ne sert pas
-     * aux survols — ceux-ci utilisent `secondary`.
-     */
-    --accent: 3 58% 41%; /* #A5322C */
-    --accent-foreground: 0 0% 100%;
-  }
-
-  .dark {
-    --accent: 3 62% 55%;
-    --accent-foreground: 0 0% 100%;
-  }
+.dark {
+  --accent: 3 62% 55%;
+  --accent-foreground: 0 0% 100%;
 }
 
 @layer base {

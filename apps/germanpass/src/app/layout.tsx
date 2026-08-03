@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ALLOWED_REDIRECT_ORIGINS, CLERK_SATELLITE } from "@/lib/platform";
+// Tokens de la maison AVANT la feuille de l'app (KB-12) : l'ordre des imports
+// fixe l'ordre dans la cascade, et c'est ainsi que l'accent produit défini dans
+// globals.css l'emporte sur l'accent par défaut de la charte.
+import "@kebrane/ui/styles.css";
 import "./globals.css";
 import { Toaster } from "@/components/toaster";
 import { OfflineProvider } from "@/components/offline-provider";

@@ -2,10 +2,18 @@
   "name": "@kebrane/config",
   "version": "0.0.0",
   "private": true,
-  "files": ["tsconfig.base.json", "tailwind-preset.cjs", "eslint-boundaries.cjs"],
+  "files": [
+    "tsconfig.base.json",
+    "tailwind-preset.cjs",
+    "tailwind-preset.d.ts",
+    "eslint-boundaries.cjs"
+  ],
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
-    "./tailwind-preset": "./tailwind-preset.cjs",
+    "./tailwind-preset": {
+      "types": "./tailwind-preset.d.ts",
+      "default": "./tailwind-preset.cjs"
+    },
     "./eslint-boundaries": "./eslint-boundaries.cjs"
   },
   "peerDependencies": {

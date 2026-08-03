@@ -4,8 +4,20 @@
  *           Sable #ECD8BE · Encre #1A1A1A · Gris #5C6672 · Papier #FBF9F5 · Blanc.
  * Équilibre 60/25/10/5 (Marine+Papier / Neutres / Ciel+Sable / Rouge).
  * Typo : Georgia. `--accent` (Rouge) surchargeable par produit.
- * À importer dans le globals.css de chaque app APRÈS @tailwind :
- *   @import "@kebrane/ui/styles.css";
+ *
+ * À importer depuis le `layout.tsx` de l'app, AVANT sa propre feuille :
+ *   import "@kebrane/ui/styles.css";
+ *   import "./globals.css";
+ *
+ * ⚠ SURTOUT PAS par `@import` dans le globals.css après `@tailwind` (ce que
+ * disait cette consigne avant KB-12, à tort) : `@tailwind base` se déploie en
+ * milliers de règles, et la spécification CSS exige qu'un `@import` précède
+ * toute autre règle. Placé après, il est rejeté — et c'est la feuille ENTIÈRE
+ * qui tombe, sans autre symptôme qu'une application sans aucun style.
+ *
+ * L'accent produit se surcharge dans le globals.css de l'app, HORS `@layer` :
+ * les règles non layerées l'emportent sur les layerées, donc un override rangé
+ * dans `@layer base` perdrait silencieusement contre les tokens ci-dessous.
  */
 :root {
   /* Papier (#FBF9F5) — fond par défaut, chaud */

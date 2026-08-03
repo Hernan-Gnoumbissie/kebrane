@@ -17,7 +17,14 @@
     },
     "lint": {},
     "typecheck": {
-      "dependsOn": ["^build", "db:generate", "^db:generate"]
+      // `build` (le sien, pas seulement celui des dépendances) : les tsconfig
+      // des apps Next incluent `.next/types/**/*.ts` — les types de routes
+      // générés. Lancé EN PARALLÈLE du build, `tsc` lit ces fichiers pendant
+      // que `next build` les régénère, et échoue sur des dizaines de
+      // « TS6053: File not found ». Course reelle, constatée le 3 août 2026 :
+      // le même typecheck lancé seul passe. Sérialiser coûte quelques secondes
+      // et supprime un rouge intermittent en CI — le pire genre de rouge.
+      "dependsOn": ["^build", "build", "db:generate", "^db:generate"]
     },
     "test": {
       "dependsOn": ["^build", "db:generate", "^db:generate"],
