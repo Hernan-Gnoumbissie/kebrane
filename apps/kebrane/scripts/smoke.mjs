@@ -61,7 +61,22 @@ try {
   const html = await landing.text();
   check("landing rend bien la page (et pas une erreur)", html.includes("Un compte Kebrane"));
 
-  // 2. Zone connectée : le proxy doit rediriger AVANT tout rendu.
+  // 2. La feuille de style est SERVIE et porte les jetons de la charte.
+  //
+  // Ajouté après KB-12, où une application entièrement dépourvue de style a
+  // traversé un build vert et 133 tests verts : rien dans la chaîne ne regarde
+  // le CSS compilé. Un `@import` mal placé suffit à faire rejeter la feuille
+  // entière, et le seul symptôme est visuel. Chercher le Marine de la charte
+  // dans le CSS réellement servi ferme ce trou pour quelques millisecondes.
+  const cssHref = html.match(/\/_next\/static\/[^"']+\.css/)?.[0];
+  check("une feuille de style est référencée par la page", Boolean(cssHref), cssHref ?? "aucune");
+  if (cssHref) {
+    const css = await (await fetch(`${BASE}${cssHref}`)).text();
+    check("la feuille porte le Marine de la charte", css.includes("216 45% 22%"));
+    check("…et n'a pas gardé la palette shadcn par défaut", !css.includes("221.2 83.2% 53.3%"));
+  }
+
+  // 3. Zone connectée : le proxy doit rediriger AVANT tout rendu.
   const hub = await fetch(`${BASE}/hub`, { redirect: "manual" });
   check("/hub non connecté redirige (307)", hub.status === 307, `HTTP ${hub.status}`);
   check(
@@ -70,7 +85,7 @@ try {
     hub.headers.get("location") ?? "aucun Location"
   );
 
-  // 3. Webhook Clerk (KB-17) : public, mais fermé à toute requête non signée.
+  // 4. Webhook Clerk (KB-17) : public, mais fermé à toute requête non signée.
   const webhook = await fetch(`${BASE}/api/webhooks/clerk`, {
     method: "POST",
     headers: { "content-type": "application/json" },

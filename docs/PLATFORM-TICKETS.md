@@ -224,21 +224,92 @@ pas qu'une config est chargée).
 ## Phase 4 — Métier GermanPass (cohérence visuelle)
 
 ### KB-12 · Migrer l'UI GermanPass vers `@kebrane/ui`
-**P2 · L · dépend de : KB-02**
-- Adopter progressivement `@kebrane/ui` (accent GermanPass), sans big-bang ; s'appuyer sur `apps/germanpass/docs/UX-TICKETS.md`.
-**Acceptation** : GermanPass cohérent avec la maison Kebrane ; pas de régression.
-**Fichiers** : `apps/germanpass/*`.
+**P2 · L · dépend de : KB-02** — **Statut : socle fait (3 août 2026) ; adoption des composants à poursuivre**
+- [x] Adopter progressivement `@kebrane/ui` (accent GermanPass), sans big-bang ; s'appuyer sur `apps/germanpass/docs/UX-TICKETS.md`.
+**Acceptation** : [x] GermanPass cohérent avec la maison Kebrane ; [x] pas de régression.
+**Fichiers** : `apps/germanpass/*`, `packages/ui/src/styles/theme.css`, `packages/config/*`.
+
+**La bascule se joue sur les TOKENS, pas sur les composants.** Les deux apps
+partageaient déjà la convention shadcn `hsl(var(--token))` : changer les variables
+suffit à faire basculer **77 fichiers `.tsx` sans en toucher un seul**. C'est ce qui rend
+ce ticket faisable « sans big-bang », et c'est aussi pourquoi le socle est déjà fait
+alors que l'adoption des *composants* de `@kebrane/ui` (Button, Card…) reste à faire —
+elle peut se poursuivre écran par écran, sans urgence, GermanPass étant déjà cohérent.
+
+**Le piège était sémantique, pas technique.** Les deux systèmes donnent un sens **opposé**
+au même nom : dans shadcn, `--accent` est la surface **neutre de survol** ; dans la charte,
+c'est l'accent de **marque**, rare (≤5 %). Les brancher l'un sur l'autre aurait rendu rouge
+chaque survol de l'application — une migration qui « compile » parfaitement en produisant
+une interface inutilisable. Les 13 usages (`hover:bg-accent`, états actifs de la nav,
+variantes `outline`/`ghost` du bouton) ont donc d'abord été renommés en `secondary` — ce
+qu'ils sont sémantiquement — ce qui libère `--accent` pour son rôle de marque.
+
+**⚠ L'incident qui compte : une app entièrement SANS style a franchi build + 133 tests.**
+Le premier jet importait le thème par `@import "@kebrane/ui/styles.css"` dans `globals.css`,
+après les `@tailwind`. Or `@tailwind base` se déploie en milliers de règles : l'`@import` se
+retrouvait ligne 2800, et la spécification CSS exige qu'il précède toute autre règle.
+PostCSS rejette alors la **feuille entière**. Résultat : page en Times New Roman, pas une
+couleur — et `typecheck`, `lint`, `build`, `test` et le smoke **tous verts**, car aucun ne
+regarde le CSS compilé. Seule l'inspection du rendu l'a vu.
+
+*La consigne fautive venait de `theme.css` lui-même* (« à importer dans le globals.css
+APRÈS @tailwind »). `apps/kebrane` ne la suivait pas — il charge le thème depuis son
+`layout.tsx` —, donc elle n'avait jamais été exercée. Corrigée à la source, avec
+l'explication du pourquoi, pour que le prochain produit n'y retourne pas.
+
+**Piège de cascade évité.** L'override d'accent produit était rangé dans `@layer base`. Les
+règles **non layerées l'emportent** sur les layerées : il aurait perdu silencieusement
+contre les tokens de la charte. Invisible aujourd'hui — les deux valeurs sont identiques —
+mais l'accent GermanPass n'aurait **jamais** pris le jour de la décision PO. Sorti du layer.
+
+**Garde-fou durable ajouté.** Puisque rien n'inspectait le CSS compilé, les deux apps ont
+désormais un smoke qui vérifie la feuille **réellement servie** : elle référence bien une
+CSS, celle-ci porte le Marine et le Papier de la charte, et ne contient plus la palette
+shadcn par défaut. Quelques millisecondes pour fermer le trou qui a laissé passer ceci.
+
+**Deux corrections de chaîne trouvées en chemin** (indépendantes de KB-12, mais qui
+auraient mordu plus tard) :
+1. `packages/config/tailwind-preset.d.ts` — le preset partagé n'était pas typé.
+   `apps/kebrane` ne le voyait pas (`allowJs: true`) ; GermanPass, plus strict, échouait en
+   `TS7016`. Typé à la source plutôt qu'en assouplissant l'app : le preset est un artefact
+   **public** du design system.
+2. `turbo.json` — `typecheck` dépend désormais de son **propre** `build`. Les tsconfig des
+   apps Next incluent `.next/types/**`, que `next build` régénère pendant que `tsc` les
+   lit : 101 erreurs `TS6053` alors que le même typecheck lancé seul passe. Rouge
+   intermittent garanti en CI — le pire genre de rouge.
+
+**Accent produit PROVISOIRE** (`#A5322C`, le Rouge de la charte), aligné sur
+`packages/core/src/registry.ts`. ⚠ **Changer les DEUX ensemble** quand la décision PO
+tombera, sinon la pastille du hub et l'application afficheraient deux couleurs différentes.
+
+**Reste à faire** : remplacer progressivement les primitives locales
+(`src/components/ui/*`) par celles de `@kebrane/ui`, écran par écran. Sans urgence : la
+cohérence visuelle est déjà acquise par les tokens.
 
 ---
 
 ## Phase 5 — Abonnements, paiements & paywall
 
-### KB-13 · Module billing Core + paywall
+### KB-13 · Module `billing` Core + paywall (paiement agnostique du fournisseur)
 **P1 · L · dépend de : KB-06, KB-08**
-- ⚠ **Décision PO bloquante** : **moyen(s) de paiement** — v0.2 mentionne **Stripe** ; GermanPass utilise aujourd'hui **mobile money (Orange/MTN) + preuve + validation admin**. Trancher (Stripe / mobile money / les deux) avant implémentation.
-- Implémenter `billing` dans Core + **paywall** + gating par abonnement (crochets KB-08).
-**Acceptation** : accès conditionné à l'abonnement selon le moyen retenu ; parcours de paiement testé.
-**Fichiers** : `packages/core/*`, apps concernées.
+
+**Décision (2 août 2026).** On **ne se couple pas** à un fournisseur. Le module `billing` de Core
+expose une **interface `PaymentProvider`** ; l'application encaisse via un **adaptateur**
+interchangeable. Marché visé : mobile money Cameroun (**MTN MoMo + Orange Money**).
+- **Fournisseur candidat n°1 : KPay** — *à confirmer* par 3 vérifs concrètes avant de coder l'adaptateur : (a) compte Freelance/Student **sans registre de commerce** accepté pour ce cas, (b) **frais** par transaction + retrait, (c) **MoMo *et* Orange Money** tous deux couverts.
+- **Repli documenté : Fapshi** — le mieux documenté pour « entreprise non enregistrée » (CNI + selfie + description). Si KPay exige des papiers ou gèle les fonds, on **remplace l'adaptateur** sans toucher au reste.
+- **Filet de lancement : le flux existant de GermanPass** (preuve de paiement mobile money + **validation admin**) reste opérationnel pendant l'intégration du PSP — on peut encaisser **avant** que l'adaptateur soit prêt.
+
+**À faire.**
+- `PaymentProvider` (interface) dans `@kebrane/core/billing` : `createCollection({ accountId, productSlug, plan, amount, phone, channel })`, `handleWebhook(payload) → { providerRef, status }`.
+- Un **adaptateur** concret (KPay d'abord, ou Fapshi si les vérifs KPay échouent) + un **adaptateur « preuve manuelle »** encapsulant le flux admin GermanPass actuel.
+- **Webhook de confirmation** → à réception d'un paiement confirmé, `access.sync({ status: ACTIVE, plan })` (déjà en place) et bascule du gating en **mode enforce** (`KEBRANE_ACCESS_ENFORCE=1`, cf. KB-08).
+- **Paywall** + page `/tarifs` cohérente avec le moyen réel (pas de promesse de carte instantanée tant que le PSP n'est pas branché).
+- Idempotence des webhooks (rejeu), journalisation des événements paiement (gravités).
+
+**Acceptation** : l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits ; le filet « preuve + admin » reste utilisable.
+**Fichiers** : `packages/core/billing/*`, `apps/kebrane` (paywall/tarifs), `apps/germanpass` (bascule enforce).
+**Décisions PO restantes** : résultat des 3 vérifs KPay → adaptateur retenu ; grille tarifaire des offres.
 
 ---
 
@@ -535,7 +606,7 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 ---
 
 ## Statut synthétique (2 août 2026)
-- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée], KB-20**.
-- **Prochains** : KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
-- **Décisions PO ouvertes** : moyen de paiement (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
+- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée], KB-20, KB-12 [socle ; composants à poursuivre]**.
+- **Prochains** : (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
+- **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026).
