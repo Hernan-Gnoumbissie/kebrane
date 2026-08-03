@@ -66,7 +66,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   // Paquets du monorepo publiés en TypeScript source (KB-08).
-  transpilePackages: ["@kebrane/core", "@kebrane/db"],
+  transpilePackages: ["@kebrane/core", "@kebrane/db", "@kebrane/ui"],
   // Client Prisma de la base Core : externalisé (jamais bundlé), comme Next le
   // fait déjà pour `@prisma/client` (client de la base métier GermanPass).
   serverExternalPackages: ["@kebrane/prisma-client"],

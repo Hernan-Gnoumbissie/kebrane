@@ -1,9 +1,20 @@
 import type { Config } from "tailwindcss";
-import animate from "tailwindcss-animate";
 import typography from "@tailwindcss/typography";
+import kebranePreset from "@kebrane/config/tailwind-preset";
 
+/**
+ * GermanPass — thème dérivé du design system Kebrane (KB-12).
+ *
+ * Couleurs, rayons, typographies et `tailwindcss-animate` viennent désormais du
+ * preset partagé : GermanPass ne redéfinit plus sa propre palette. Ne reste ici
+ * que ce qui lui est PROPRE — le plugin typography (contenus longs de cours) et
+ * les animations d'accordéon Radix.
+ *
+ * L'accent produit se règle dans `src/app/globals.css`, pas ici : c'est une
+ * variable CSS, surchargeable sans toucher à la configuration Tailwind.
+ */
 const config: Config = {
-  darkMode: ["class"],
+  presets: [kebranePreset as Config],
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     container: {
@@ -12,46 +23,6 @@ const config: Config = {
       screens: { "2xl": "1400px" },
     },
     extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -68,7 +39,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [animate, typography],
+  plugins: [typography],
 };
 
 export default config;

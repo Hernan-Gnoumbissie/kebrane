@@ -45,7 +45,7 @@ export function MobileNav({ nav, isAdmin, firstName }: MobileNavProps) {
         aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
         aria-expanded={open}
         aria-controls="mobile-menu"
-        className="md:hidden flex flex-col justify-center items-center gap-[5px] w-11 h-11 rounded-xl hover:bg-accent active:bg-accent/80 transition-colors shrink-0"
+        className="md:hidden flex flex-col justify-center items-center gap-[5px] w-11 h-11 rounded-xl hover:bg-secondary active:bg-secondary/80 transition-colors shrink-0"
         onClick={() => setOpen((v) => !v)}
       >
         <span
@@ -91,7 +91,7 @@ export function MobileNav({ nav, isAdmin, firstName }: MobileNavProps) {
                   type="button"
                   aria-label="Fermer le menu"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-accent text-muted-foreground transition-colors"
+                  className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
                 >
                   <svg
                     width="18"
@@ -133,7 +133,7 @@ export function MobileNav({ nav, isAdmin, firstName }: MobileNavProps) {
                           "flex items-center rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                           active
                             ? "bg-primary text-primary-foreground"
-                            : "hover:bg-accent text-foreground",
+                            : "hover:bg-secondary text-foreground",
                         ].join(" ")}
                       >
                         {item.label}

@@ -25,6 +25,7 @@
   "dependencies": {
     "@clerk/nextjs": "^7.0.0",
     "@kebrane/core": "workspace:*",
+    "@kebrane/ui": "workspace:*",
     "@prisma/client": "^6.5.0",
     "@tailwindcss/typography": "^0.5.15",
     "bcryptjs": "^2.4.3",

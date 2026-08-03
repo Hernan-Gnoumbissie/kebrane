@@ -19,7 +19,7 @@ export function MobileBackButton() {
           type="button"
           aria-label="Retour à la page précédente"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-primary hover:bg-accent transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-primary hover:bg-secondary transition-colors"
         >
           <svg
             width="18"

@@ -37,7 +37,7 @@ export default function ErrorBoundary({ error, reset }: ErrorBoundaryProps) {
         <Button onClick={reset}>Réessayer</Button>
         <Link
           href="/dashboard"
-          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-secondary hover:text-secondary-foreground transition-colors"
         >
           Retour au tableau de bord
         </Link>

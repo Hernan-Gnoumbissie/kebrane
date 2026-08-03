@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { NavLinks } from "@/components/nav-links";
 import { MobileBackButton } from "@/components/mobile-back-button";
 import { Logo } from "@/components/logo";
+import { ByKebrane } from "@kebrane/ui";
 import { KEBRANE_HUB_URL } from "@/lib/platform";
 
 const NAV_ITEMS = [
@@ -57,6 +58,11 @@ export async function AppHeader() {
           </span>
           <span className="sm:hidden">
             <Logo size="sm" />
+          </span>
+          {/* Rattachement à la maison (charte, KB-12). Discret et non cliquable :
+              le lien vers le compte Kebrane vit déjà à droite du header. */}
+          <span className="hidden md:block pl-0.5 leading-none">
+            <ByKebrane className="text-[0.625rem]" />
           </span>
         </Link>
 

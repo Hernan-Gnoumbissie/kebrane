@@ -53,7 +53,7 @@ export function LevelSelector({ currentLevel, targetLevel, selected, onChange }:
               "rounded-full px-3 py-1 text-sm font-medium border transition-colors",
               isLocked && "opacity-40 cursor-not-allowed bg-muted text-muted-foreground border-transparent",
               !isLocked && isSelected && "bg-primary text-primary-foreground border-primary",
-              !isLocked && !isSelected && "bg-background text-foreground border-border hover:bg-accent",
+              !isLocked && !isSelected && "bg-background text-foreground border-border hover:bg-secondary",
             )}
           >
             {isLocked ? "🔒 " : isCurrent && isSelected ? "📍 " : ""}

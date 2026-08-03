@@ -24,7 +24,7 @@ export function NavLinks({ nav }: { nav: NavItem[] }) {
             aria-current={isActive ? "page" : undefined}
             className={cn(
               buttonVariants({ variant: "ghost", size: "sm" }),
-              isActive && "bg-accent font-semibold"
+              isActive && "bg-secondary font-semibold"
             )}
           >
             {item.label}
