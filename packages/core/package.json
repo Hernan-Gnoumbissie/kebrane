@@ -8,6 +8,7 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "seed": "tsx --env-file-if-exists=../db/.env scripts/seed.ts",
+    "grant-admin": "tsx --env-file-if-exists=../db/.env scripts/grant-admin.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --env-file-if-exists=../db/.env --test tests/*.test.ts"
   },

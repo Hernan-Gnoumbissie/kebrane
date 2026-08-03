@@ -475,12 +475,51 @@ phases sont séquentielles) :
    quand même et affiche les 4 produits par le repli déclaratif.
 
 ### KB-20 · Attribution des rôles Kebrane (bootstrap admin)
-**P2 · M · dépend de : KB-06 · prérequis de KB-15**
+**P2 · M · dépend de : KB-06 · prérequis de KB-15** — **Statut : fait (3 août 2026)**
 `Account.role` existe (`MEMBER/STAFF/ADMIN`) mais **aucun moyen de l'attribuer** — bloquant pour `admin.kebrane.com`.
-- Service `accounts.setRole(accountId, role)` + événement (`account.role_changed`, gravité IMPORTANT).
-- Bootstrap du premier admin : via env (`KEBRANE_BOOTSTRAP_ADMIN_EMAIL`, appliqué au seed/à la connexion) **ou** script `pnpm --filter @kebrane/core grant-admin <email>`.
-**Acceptation** : un compte peut devenir `ADMIN` de façon **tracée** ; un bootstrap existe pour le tout premier admin.
-**Fichiers** : `packages/core/*`, script.
+- [x] Service `accounts.setRole(accountId, role)` + événement (`account.role_changed`, gravité IMPORTANT).
+- [x] Bootstrap du premier admin : via env (`KEBRANE_BOOTSTRAP_ADMIN_EMAIL`) **et** script `pnpm --filter @kebrane/core grant-admin <email>` — les deux, ils ne couvrent pas le même cas.
+**Acceptation** : [x] un compte peut devenir `ADMIN` de façon **tracée** ; [x] un bootstrap existe pour le tout premier admin.
+**Fichiers** : `packages/core/*`, `packages/core/scripts/grant-admin.ts`.
+
+**Le bootstrap s'applique à la CRÉATION du compte, pas à la connexion.** Le ticket disait
+« au seed ou à la connexion » ; les deux posent problème. *Au seed* : le compte n'existe pas
+encore au moment du déploiement — la personne ne s'est pas inscrite. *À la connexion* : une
+variable oubliée dans l'environnement re-promouvrait en silence un compte qu'on vient de
+rétrograder, et **rien n'apparaîtrait au journal** puisque, du point de vue de chaque
+connexion, rien n'aurait « changé ». C'est une porte dérobée permanente et invisible. D'où
+le choix : la variable n'est lue qu'à la création, et un test dédié interdit explicitement
+la re-promotion.
+
+**Les deux mécanismes sont complémentaires, pas redondants.** La variable d'environnement
+couvre le déploiement neuf (personne à qui demander une promotion) ; le script couvre tout
+le reste, y compris le cas le plus courant — la personne s'est déjà inscrite, donc son
+compte existe et la variable ne s'appliquera jamais à elle. Le script **refuse de créer une
+identité** : le parcours est « inscription (le webhook KB-17 crée le compte Core) → promotion ».
+
+**Traçabilité.** `setRole` est idempotent — réattribuer le rôle en place n'écrit rien et
+n'émet rien, pour que le journal ne contienne que de vrais changements. Chaque transition
+porte `{from, to, source}` en gravité IMPORTANT ; `source` distingue `grant-admin`,
+`bootstrap_env` et le futur écran d'admin, sans quoi toutes les lignes se ressembleraient.
+Les rétrogradations sont tracées exactement comme les promotions.
+
+**Vérifié** :
+- `typecheck` vert ; **27 tests `@kebrane/core`** verts (19 existants + 8 sur les rôles),
+  dont : promotion journalisée en IMPORTANT avec `{from,to,source}`, rétrogradation tracée
+  de même, réattribution sans effet ni ligne au journal, compte inconnu ⇒ `null`, bootstrap
+  qui ne vise QUE l'email configuré, et **refus de re-promouvoir un compte rétrogradé**.
+- **Test prouvé mordant** : la porte dérobée a été implémentée volontairement (bootstrap
+  appliqué à chaque résolution de compte) — **seul** le test « ne re-promeut PAS un compte
+  rétrogradé » est passé au rouge, ce qui confirme qu'il vise juste. Code restauré.
+- **Recette du script en ligne de commande** (13 assertions) : sans argument ⇒ usage ;
+  rôle inconnu refusé ; compte inexistant ⇒ message explicite **sans rien créer** ;
+  promotion effective en base + journalisée avec `source: grant-admin` ; **rejeu** signalé
+  sans réécrire ni dupliquer l'événement ; rôle explicite accepté en minuscules. Base de dev
+  rendue intacte.
+
+**Reste à faire (hors code)** : renseigner `KEBRANE_BOOTSTRAP_ADMIN_EMAIL` au premier
+déploiement (KB-21), **puis le retirer** une fois le premier admin en place — une variable
+qui traîne est une promotion silencieuse au prochain compte créé avec cet email.
 
 ### KB-21 · Préparation production (env, domaines, déploiement)
 **P2 · L**
@@ -496,7 +535,7 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 ---
 
 ## Statut synthétique (2 août 2026)
-- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée]**.
-- **Prochains** : KB-20 (rôles admin), puis KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
+- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée], KB-20**.
+- **Prochains** : KB-12 (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
 - **Décisions PO ouvertes** : moyen de paiement (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026).

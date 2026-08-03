@@ -2,11 +2,11 @@
 // SEULE porte d'accès des produits au domaine (frontière v0.2 : jamais les tables directement).
 import { db } from "@kebrane/db";
 import type { Account, Product, ProductAccess } from "@kebrane/db";
-import { AccessStatus, ProductStatus } from "@kebrane/db";
+import { AccessStatus, ProductStatus, Role } from "@kebrane/db";
 import { PRODUCT_REGISTRY } from "./registry";
 
 export type { Account, Product, ProductAccess } from "@kebrane/db";
-export { AccessStatus, ProductStatus } from "@kebrane/db";
+export { AccessStatus, ProductStatus, Role } from "@kebrane/db";
 export { PRODUCT_REGISTRY, type ProductDefinition } from "./registry";
 
 type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
@@ -16,10 +16,26 @@ export const PRODUCT_SLUGS = {
   germanpass: "germanpass",
 } as const;
 
+/**
+ * Email du tout premier administrateur (KB-20), lu à la CRÉATION d'un compte.
+ *
+ * Volontairement appliqué à la seule création, et non à chaque connexion : une
+ * variable oubliée dans l'environnement re-promouvrait sinon en silence un
+ * compte qu'on vient de rétrograder — une porte dérobée permanente, invisible
+ * dans le journal parce que rien n'aurait « changé ».
+ */
+function bootstrapAdminEmail(): string | null {
+  return process.env.KEBRANE_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase() || null;
+}
+
 /** Comptes Kebrane — identité unique, liée à Clerk. */
 export const accounts = {
   findByClerkUserId(clerkUserId: string): Promise<Account | null> {
     return db.account.findUnique({ where: { clerkUserId } });
+  },
+
+  findByEmail(email: string): Promise<Account | null> {
+    return db.account.findUnique({ where: { email: email.toLowerCase() } });
   },
 
   /** Résout (ou crée) le compte Kebrane d'un utilisateur Clerk. Idempotent. */
@@ -49,10 +65,30 @@ export const accounts = {
       return linked;
     }
 
+    // Bootstrap du premier admin (KB-20) : le tout premier compte doit pouvoir
+    // exister sans qu'aucun admin ne soit là pour le promouvoir.
+    const isBootstrapAdmin = bootstrapAdminEmail() === email;
+
     const created = await db.account.create({
-      data: { clerkUserId: input.clerkUserId, email, name: input.name },
+      data: {
+        clerkUserId: input.clerkUserId,
+        email,
+        name: input.name,
+        ...(isBootstrapAdmin ? { role: Role.ADMIN } : {}),
+      },
     });
     await events.log({ type: "account.created", accountId: created.id });
+
+    if (isBootstrapAdmin) {
+      // Un privilège accordé par la configuration reste un privilège : il se
+      // lit dans le journal exactement comme une promotion manuelle.
+      await events.log({
+        type: "account.role_changed",
+        severity: "IMPORTANT",
+        accountId: created.id,
+        data: { from: Role.MEMBER, to: Role.ADMIN, source: "bootstrap_env" },
+      });
+    }
     return created;
   },
 
@@ -82,6 +118,40 @@ export const accounts = {
       data: { clerkUserId },
     });
     return unlinked;
+  },
+
+  /**
+   * Attribue un rôle à un compte (KB-20) — prérequis d'`admin.kebrane.com`.
+   *
+   * `Account.role` existait depuis KB-06 mais rien ne permettait de le changer :
+   * le RBAC était lisible et inattribuable.
+   *
+   * Toute promotion ou rétrogradation est **tracée** en gravité IMPORTANT — un
+   * changement de privilège est précisément ce qu'on veut pouvoir reconstituer
+   * après coup. Idempotent : réattribuer le rôle déjà en place n'écrit rien et
+   * ne journalise rien, pour que le journal ne contienne que de vrais
+   * changements.
+   *
+   * `source` distingue l'origine (script d'exploitation, futur écran d'admin,
+   * bootstrap), sans quoi toutes les lignes se ressemblent.
+   */
+  async setRole(
+    accountId: string,
+    role: Role,
+    options: { source?: string } = {}
+  ): Promise<Account | null> {
+    const account = await db.account.findUnique({ where: { id: accountId } });
+    if (!account) return null;
+    if (account.role === role) return account;
+
+    const updated = await db.account.update({ where: { id: accountId }, data: { role } });
+    await events.log({
+      type: "account.role_changed",
+      severity: "IMPORTANT",
+      accountId,
+      data: { from: account.role, to: role, source: options.source ?? "service" },
+    });
+    return updated;
   },
 };
 
