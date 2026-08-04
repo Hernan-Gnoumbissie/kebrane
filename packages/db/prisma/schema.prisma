@@ -43,6 +43,7 @@ model Account {
 
   accesses ProductAccess[]
   events   Event[]
+  payments Payment[]
 
   @@map("accounts")
 }
@@ -67,6 +68,7 @@ model Product {
   updatedAt   DateTime      @updatedAt
 
   accesses ProductAccess[]
+  payments Payment[]
 
   @@map("products")
 }
@@ -122,4 +124,70 @@ enum EventSeverity {
   INFO
   IMPORTANT
   ACTION_REQUIRED
+}
+
+/// Encaissement pour l'accès à un produit (KB-13).
+///
+/// Volontairement AGNOSTIQUE du fournisseur : `provider` est une chaîne, pas un
+/// enum, pour qu'ajouter un PSP ne demande pas de migration. C'est la même
+/// intention que l'interface `PaymentProvider` côté services — changer de
+/// fournisseur ne doit toucher que l'adaptateur.
+///
+/// La ligne est CONSERVÉE quel que soit son sort (échec, remboursement) : c'est
+/// la trace comptable, et le support en a besoin pour répondre « où est passé
+/// mon argent ».
+model Payment {
+  id        String @id @default(cuid())
+  accountId String
+  productId String
+  /// Offre souscrite ; recopiée dans `ProductAccess.plan` à la confirmation.
+  plan      String
+
+  /// Montant dans la PLUS PETITE unité de la devise. Le franc CFA n'a pas de
+  /// subdivision (1 XAF = 1), mais on garde un entier générique pour ne pas
+  /// avoir à migrer si une devise à centimes arrive un jour. Jamais de flottant
+  /// pour de l'argent.
+  amount   Int
+  currency String @default("XAF")
+
+  /// Fournisseur d'encaissement : "manual-proof", "kpay", "fapshi"…
+  provider String
+  /// Référence CHEZ le fournisseur. Couplée à `provider`, elle porte
+  /// l'idempotence : un webhook rejoué ne peut pas encaisser deux fois.
+  providerRef String
+  channel     PaymentChannel
+  /// Numéro mobile money payeur — donnée personnelle, à ne jamais journaliser en clair.
+  phone       String?
+
+  status      PaymentStatus @default(PENDING)
+  confirmedAt DateTime?
+  /// Charge utile du fournisseur (webhook, preuve) — pour le support et l'audit.
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerRef])
+  @@index([accountId])
+  @@index([status])
+  @@map("payments")
+}
+
+/// Canal d'encaissement. `MANUAL` couvre le filet de lancement (preuve de
+/// paiement + validation admin), qui reste opérationnel pendant l'intégration
+/// du PSP.
+enum PaymentChannel {
+  MTN_MOMO
+  ORANGE_MONEY
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
 }

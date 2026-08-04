@@ -8,6 +8,20 @@ import { PRODUCT_REGISTRY } from "./registry";
 export type { Account, Product, ProductAccess } from "@kebrane/db";
 export { AccessStatus, ProductStatus, Role } from "@kebrane/db";
 export { PRODUCT_REGISTRY, type ProductDefinition } from "./registry";
+// Module `billing` (KB-13) — encaissement agnostique du fournisseur.
+export {
+  billing,
+  manualProofProvider,
+  registerPaymentProvider,
+  getPaymentProvider,
+  PaymentChannel,
+  PaymentStatus,
+  type Payment,
+  type PaymentProvider,
+  type CollectionRequest,
+  type CollectionResult,
+  type WebhookResult,
+} from "./billing";
 
 type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
 

@@ -296,8 +296,8 @@ cohérence visuelle est déjà acquise par les tokens.
 **Moyen de paiement — tranché (4 août 2026) : mobile money, MTN en tête. Stripe est écarté.**
 Cohérent avec le marché visé et avec ce que GermanPass encaisse déjà. La carte bancaire
 n'est plus une hypothèse de travail : `/tarifs` ne doit rien en promettre.
-*Reste à préciser : Orange Money en plus de MTN dès le lancement, ou MTN seul d'abord ?*
-Cela ne change pas l'architecture ci-dessous — seulement le critère (c) des vérifs KPay.
+**Les deux opérateurs dès le lancement** (4 août 2026) : MTN MoMo **et** Orange Money. Le
+critère (c) des vérifs KPay — couvrir les deux — reste donc bien un critère éliminatoire.
 
 **Décision (2 août 2026).** On **ne se couple pas** à un fournisseur. Le module `billing` de Core
 expose une **interface `PaymentProvider`** ; l'application encaisse via un **adaptateur**
@@ -306,16 +306,48 @@ interchangeable. Marché visé : mobile money Cameroun (**MTN MoMo + Orange Mone
 - **Repli documenté : Fapshi** — le mieux documenté pour « entreprise non enregistrée » (CNI + selfie + description). Si KPay exige des papiers ou gèle les fonds, on **remplace l'adaptateur** sans toucher au reste.
 - **Filet de lancement : le flux existant de GermanPass** (preuve de paiement mobile money + **validation admin**) reste opérationnel pendant l'intégration du PSP — on peut encaisser **avant** que l'adaptateur soit prêt.
 
-**À faire.**
-- `PaymentProvider` (interface) dans `@kebrane/core/billing` : `createCollection({ accountId, productSlug, plan, amount, phone, channel })`, `handleWebhook(payload) → { providerRef, status }`.
-- Un **adaptateur** concret (KPay d'abord, ou Fapshi si les vérifs KPay échouent) + un **adaptateur « preuve manuelle »** encapsulant le flux admin GermanPass actuel.
-- **Webhook de confirmation** → à réception d'un paiement confirmé, `access.sync({ status: ACTIVE, plan })` (déjà en place) et bascule du gating en **mode enforce** (`KEBRANE_ACCESS_ENFORCE=1`, cf. KB-08).
-- **Paywall** + page `/tarifs` cohérente avec le moyen réel (pas de promesse de carte instantanée tant que le PSP n'est pas branché).
-- Idempotence des webhooks (rejeu), journalisation des événements paiement (gravités).
+**État (4 août 2026) : le module `billing` de Core est fait ; il reste ce qui dépend de toi.**
+- [x] `PaymentProvider` (interface) dans `@kebrane/core` (`src/billing.ts`) : `createCollection`, `handleWebhook`, + registre d'adaptateurs (`registerPaymentProvider`).
+- [x] **Adaptateur « preuve manuelle »** (`manual-proof`) encapsulant le flux admin GermanPass actuel — le filet de lancement passe par la même interface que les futurs PSP.
+- [ ] **Adaptateur PSP concret** (KPay, ou Fapshi) — *bloqué par les 3 vérifs, qui sont des démarches auprès du fournisseur.*
+- [x] Confirmation → `access.sync({ status: ACTIVE, plan })`.
+- [ ] Bascule du gating en **mode enforce** (`KEBRANE_ACCESS_ENFORCE=1`, cf. KB-08) — à faire quand un PSP encaisse réellement, pas avant : passer le drapeau maintenant couperait l'accès à des membres à jour.
+- [ ] **Paywall** + page `/tarifs` — *bloqué par la grille tarifaire (montants, offres), qui ne s'invente pas.*
+- [x] Idempotence (rejeu de webhook, double clic admin), journalisation aux 3 gravités.
 
-**Acceptation** : l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits ; le filet « preuve + admin » reste utilisable.
-**Fichiers** : `packages/core/billing/*`, `apps/kebrane` (paywall/tarifs), `apps/germanpass` (bascule enforce).
-**Décisions PO restantes** : résultat des 3 vérifs KPay → adaptateur retenu ; grille tarifaire des offres.
+**Modèle `Payment`** (migration `20260804165252_kb13_billing_payments`). Trois choix
+structurants : `provider` est une **chaîne, pas un enum** — ajouter un PSP ne doit pas
+demander de migration ; l'unicité **`(provider, providerRef)`** *porte* l'idempotence, elle
+n'est pas qu'un index ; le montant est un **entier** dans la plus petite unité de la devise
+— jamais de flottant pour de l'argent, même si le franc CFA n'a pas de subdivision.
+
+**Trois invariants, chacun tenu par un test.**
+1. *Demander n'est pas recevoir.* Une demande d'encaissement n'ouvre aucun accès — sinon il
+   suffirait de cliquer pour obtenir le produit.
+2. *Idempotence.* Trois confirmations ⇒ un seul encaissement au journal. Les PSP rejouent
+   leurs webhooks et un admin peut cliquer deux fois.
+3. *Un paiement confirmé ne se dégrade pas.* Une notification d'échec tardive ou
+   désordonnée ne retire pas un accès déjà payé — mieux vaut un accès en trop qu'un client
+   privé de ce qu'il a payé. Le remboursement passe par `REFUNDED`, pas par `FAILED`.
+
+**Le journal ne contient ni téléphone ni charge utile fournisseur.** Il est lu largement
+(support, admin) : il ne doit pas devenir un annuaire de numéros mobile money. Un test le
+vérifie explicitement.
+
+**⚠ Bug trouvé par les tests avant toute mise en service.** Quand un fournisseur confirme
+d'emblée — cas normal d'un PSP synchrone — la ligne était écrite directement en `CONFIRMED` ;
+`confirm()` la voyait alors déjà confirmée, sortait par sa garde d'idempotence, et
+**n'ouvrait jamais l'accès**. Le membre aurait payé sans rien recevoir. Corrigé en faisant
+passer tout encaissement par un **chemin unique** : on persiste en attente, puis on confirme.
+
+**Vérifié** : `typecheck` vert ; **42 tests `@kebrane/core`** (27 + 15 sur `billing`), dont
+la triple confirmation, le webhook rejoué, la charge utile étrangère ignorée sans erreur, le
+refus d'un canal non couvert par l'adaptateur, le refus d'un montant non entier ou négatif,
+et le plan qui suit le dernier paiement confirmé.
+
+**Acceptation** : [x] l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; [x] changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits (prouvé par deux adaptateurs fictifs dans les tests) ; [x] le filet « preuve + admin » reste utilisable.
+**Fichiers** : `packages/core/src/billing.ts`, `packages/db/prisma/schema.prisma`, `apps/kebrane` (paywall/tarifs — à faire), `apps/germanpass` (bascule enforce — à faire).
+**Décisions PO restantes** : résultat des 3 vérifs KPay → adaptateur retenu ; **grille tarifaire des offres** (montants + périodicités) — c'est elle qui débloque le paywall et `/tarifs`.
 
 ---
 
