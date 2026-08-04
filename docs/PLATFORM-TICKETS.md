@@ -293,6 +293,12 @@ cohérence visuelle est déjà acquise par les tokens.
 ### KB-13 · Module `billing` Core + paywall (paiement agnostique du fournisseur)
 **P1 · L · dépend de : KB-06, KB-08**
 
+**Moyen de paiement — tranché (4 août 2026) : mobile money, MTN en tête. Stripe est écarté.**
+Cohérent avec le marché visé et avec ce que GermanPass encaisse déjà. La carte bancaire
+n'est plus une hypothèse de travail : `/tarifs` ne doit rien en promettre.
+*Reste à préciser : Orange Money en plus de MTN dès le lancement, ou MTN seul d'abord ?*
+Cela ne change pas l'architecture ci-dessous — seulement le critère (c) des vérifs KPay.
+
 **Décision (2 août 2026).** On **ne se couple pas** à un fournisseur. Le module `billing` de Core
 expose une **interface `PaymentProvider`** ; l'application encaisse via un **adaptateur**
 interchangeable. Marché visé : mobile money Cameroun (**MTN MoMo + Orange Money**).
@@ -354,7 +360,7 @@ interchangeable. Marché visé : mobile money Cameroun (**MTN MoMo + Orange Mone
 5. **Phase 5** : KB-13 (après décision paiement).
 6. **Phase 6** : KB-14. · **Phase 7** : KB-15. · **Phase 8** : KB-16 (dernier).
 
-> **MVP lançable = Phases 1 → 5.** Décisions PO à débloquer : moyen de paiement (KB-13), accent GermanPass (KB-02), PostgreSQL prod (KB-01), Brand Book complet dans `brand/`.
+> **MVP lançable = Phases 1 → 5.** Décisions PO à débloquer : ~~moyen de paiement (KB-13)~~ → **tranché le 4 août 2026 : mobile money, MTN en tête ; Stripe écarté** ; accent GermanPass (KB-02), PostgreSQL prod (KB-01), Brand Book complet dans `brand/`.
 
 ---
 
@@ -609,4 +615,4 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 - **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée], KB-20, KB-12 [socle ; composants à poursuivre]**.
 - **Prochains** : (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
 - **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
-- **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026).
+- **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
