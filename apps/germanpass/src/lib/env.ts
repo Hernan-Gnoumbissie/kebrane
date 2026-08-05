@@ -39,6 +39,14 @@ const envSchema = z.object({
     .enum(["0", "1", "true", "false"])
     .default("0")
     .transform((v) => v === "1" || v === "true"),
+  // Enveloppe IA Kebrane (KB-13). Comme ci-dessus, en OBSERVATION par défaut :
+  // les coûts estimés ne sont pas encore mesurés, et bloquer un membre payant
+  // sur la foi d'une estimation serait pire que laisser passer quelques appels.
+  // Passer à "1" une fois `ai:cost` exploité sur des corrections réelles.
+  KEBRANE_AI_BUDGET_ENFORCE: z
+    .enum(["0", "1", "true", "false"])
+    .default("0")
+    .transform((v) => v === "1" || v === "true"),
 });
 
 export const env = envSchema.parse(process.env);

@@ -414,9 +414,30 @@ la bonne date, la recopie opposable, la consommation qui survit à l'expiration,
 d'une capacité inconnue ou d'une durée nulle, et la cohérence commerciale du registre (plus
 long ⇒ plus cher ⇒ plus d'IA).
 
-**Reste à faire** : paywall et `/tarifs` lisant `plans.forProduct()` ; branchement du
-crochet `entitlements.reserveAi()` dans GermanPass **avant** chaque appel IA (refuser après
-avoir dépensé ne protège de rien) ; écran d'administration des offres (KB-15).
+**Crochet branché dans GermanPass (4 août 2026).** Les trois fonctions IA du produit
+passaient déjà toutes par `checkBudget()` : la réserve Kebrane y est greffée plutôt que
+dispersée chez les appelants — un contrôle qu'on oublie à un endroit ne protège de rien.
+Le pont `lib/kebrane.ts` reste la seule porte vers Core (frontière v0.2).
+
+- **Réserve AVANT l'appel, régularisation APRÈS.** On réserve un coût estimé, puis
+  `logUsage()` — qui connaît le coût réel — ajuste l'écart via `entitlements.settleAi()`.
+  Une estimation imparfaite ne fausse donc pas le compteur : elle ne décale que le moment
+  du refus. La régularisation a lieu **même si l'appel échoue** — les tokens consommés sont
+  facturés quand même.
+- **Mode OBSERVATION par défaut** (`KEBRANE_AI_BUDGET_ENFORCE=0`), décision confirmée par
+  le PO. Motif : les coûts sont **estimés, pas mesurés** — la base ne contenait aucune
+  correction. Bloquer un membre payant sur la foi d'un chiffre jamais vérifié serait pire
+  que laisser passer quelques appels ; si l'estimation de 0,025 $ est trois fois trop haute,
+  un Intensif serait coupé au bout de 13 corrections au lieu de 40. Les refus qui *auraient*
+  été prononcés sont journalisés, ce qui permet de mesurer l'impact du plafond avant de
+  l'activer. Même discipline qu'en KB-08 pour le gating d'accès.
+- **Séquence pour activer** : observation → quelques dizaines de corrections réelles →
+  `pnpm --filter @kebrane/germanpass ai:cost` → ajuster les enveloppes du registre → `1`.
+- **Les deux plafonds cohabitent** volontairement : celui de GermanPass (mensuel,
+  anti-catastrophe) reste ; celui de Kebrane (par offre) devient l'instrument commercial.
+
+**Reste à faire** : paywall et `/tarifs` lisant `plans.forProduct()` ; écran
+d'administration des offres (KB-15) ; puis bascule des deux drapeaux d'enforcement.
 
 **Acceptation** : [x] l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; [x] changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits (prouvé par deux adaptateurs fictifs dans les tests) ; [x] le filet « preuve + admin » reste utilisable.
 **Fichiers** : `packages/core/src/billing.ts`, `packages/db/prisma/schema.prisma`, `apps/kebrane` (paywall/tarifs — à faire), `apps/germanpass` (bascule enforce — à faire).

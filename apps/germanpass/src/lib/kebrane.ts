@@ -23,8 +23,18 @@
  * de ce module échouent en silence (log) et le crochet retourne `null`
  * (« pas d'avis »), ce que les gardes interprètent comme « laisser passer ».
  */
-import { accounts, access, events, AccessStatus, PRODUCT_SLUGS } from "@kebrane/core";
-import type { Account } from "@kebrane/core";
+import {
+  accounts,
+  access,
+  events,
+  entitlements,
+  plans,
+  AccessStatus,
+  CAPABILITIES,
+  PRODUCT_SLUGS,
+} from "@kebrane/core";
+import type { Account, Capability, Entitlement, Plan } from "@kebrane/core";
+import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 
 /** `product_id` de GermanPass dans le registre Kebrane. */
@@ -143,6 +153,166 @@ export async function logKebraneEvent(input: {
     });
   } catch (e) {
     warn("logKebraneEvent", e);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Offres et droits (KB-13)                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Offres vendables de GermanPass, lues dans le catalogue Core.
+ *
+ * `null` quand Core n'a pas d'avis (pont désactivé, base indisponible) : la page
+ * de tarifs se rabat alors sur sa grille locale. Même principe qu'en KB-19 pour
+ * la landing — mieux vaut une vitrine servie par un repli qu'une page en erreur.
+ */
+export async function getKebranePlans(): Promise<Plan[] | null> {
+  if (!CORE_ENABLED) return null;
+  try {
+    const list = await plans.forProduct(GERMANPASS_SLUG);
+    return list.length > 0 ? list : null;
+  } catch (e) {
+    warn("getKebranePlans", e);
+    return null;
+  }
+}
+
+/** Droits effectifs d'un utilisateur GermanPass (capacités + enveloppe IA). */
+export async function getKebraneEntitlement(
+  user: Pick<ProductUserView, "clerkUserId">
+): Promise<Entitlement | null> {
+  if (!CORE_ENABLED || !user.clerkUserId) return null;
+  try {
+    const account = await accounts.findByClerkUserId(user.clerkUserId);
+    if (!account) return null;
+    return await entitlements.forProduct(account.id, GERMANPASS_SLUG);
+  } catch (e) {
+    warn("getKebraneEntitlement", e);
+    return null;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Enveloppe IA (KB-13)                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Coût ESTIMÉ d'un appel, en micro-dollars (1 000 000 = 1 $), par type.
+ *
+ * Sert à réserver AVANT l'appel : refuser après avoir dépensé ne protège de
+ * rien. L'écart avec le coût réel est régularisé juste après par
+ * `settleKebraneAi()`, si bien qu'une estimation imparfaite ne fausse pas le
+ * compteur — elle ne décale que le moment du refus.
+ *
+ * ⚠ Ces valeurs sont des ESTIMATIONS, pas des mesures : la base ne contenait
+ * aucune correction au moment de les poser. À réviser avec
+ * `pnpm --filter @kebrane/germanpass ai:cost` dès qu'il en existe.
+ */
+const ESTIMATED_MICRO_USD: Record<string, number> = {
+  writing_eval: 25_000, // ~0,025 $
+  speaking_eval: 60_000, // transcription + évaluation
+  generation: 10_000,
+  vision_ocr: 15_000,
+  embedding: 100,
+  tts: 2_000,
+  stt: 6_000,
+};
+
+/** Capacité Kebrane correspondant à un type d'appel IA. */
+const CAPABILITY_BY_KIND: Record<string, Capability | undefined> = {
+  writing_eval: CAPABILITIES.CORRECTION_WRITING,
+  speaking_eval: CAPABILITIES.CORRECTION_SPEAKING,
+  vision_ocr: CAPABILITIES.CORRECTION_WRITING, // OCR d'une copie manuscrite à corriger
+};
+
+export function estimatedMicroUsd(kind: string): number {
+  return ESTIMATED_MICRO_USD[kind] ?? 5_000;
+}
+
+/**
+ * Le refus fondé sur l'enveloppe IA est-il OPPOSABLE ?
+ *
+ * Par défaut NON — mode observation, comme l'a été le gating d'accès (KB-08).
+ * Motif : les coûts ci-dessus ne sont pas mesurés. Bloquer un membre payant sur
+ * la foi d'une estimation serait pire que de laisser passer quelques appels de
+ * trop. On journalise les dépassements, on mesure, puis on passe ce drapeau à 1.
+ */
+export const AI_BUDGET_ENFORCED = CORE_ENABLED && env.KEBRANE_AI_BUDGET_ENFORCE;
+
+export interface AiReservation {
+  allowed: boolean;
+  reason?: "capability" | "budget";
+  /** `false` = avis consultatif : l'appel a lieu quand même. */
+  enforced: boolean;
+  remainingMicroUsd: number;
+}
+
+/**
+ * Réserve le coût estimé d'un appel IA sur l'enveloppe du membre.
+ *
+ * Retourne `null` quand Core n'a pas d'avis (pont désactivé, compte non lié,
+ * type d'appel sans capacité associée, Core en erreur) : l'appel a lieu, la
+ * logique métier de GermanPass fait foi.
+ */
+export async function reserveKebraneAi(input: {
+  userId: string | null;
+  kind: string;
+}): Promise<AiReservation | null> {
+  if (!CORE_ENABLED || !input.userId) return null;
+  const capability = CAPABILITY_BY_KIND[input.kind];
+  if (!capability) return null; // embeddings, TTS… : pas de capacité vendue
+
+  try {
+    const user = await db.user.findUnique({
+      where: { id: input.userId },
+      select: { clerkUserId: true },
+    });
+    if (!user?.clerkUserId) return null;
+    const account = await accounts.findByClerkUserId(user.clerkUserId);
+    if (!account) return null;
+
+    const verdict = await entitlements.reserveAi({
+      accountId: account.id,
+      productSlug: GERMANPASS_SLUG,
+      capability,
+      estimatedMicroUsd: estimatedMicroUsd(input.kind),
+    });
+
+    return { ...verdict, enforced: AI_BUDGET_ENFORCED };
+  } catch (e) {
+    warn("reserveKebraneAi", e);
+    return null;
+  }
+}
+
+/**
+ * Régularise l'écart entre coût estimé et coût réel, une fois l'appel terminé.
+ * Silencieux : une régularisation manquée décale le compteur, elle ne doit pas
+ * faire échouer une correction déjà rendue au membre.
+ */
+export async function settleKebraneAi(input: {
+  userId: string | null;
+  kind: string;
+  actualMicroUsd: number;
+}): Promise<void> {
+  if (!CORE_ENABLED || !input.userId) return;
+  if (!CAPABILITY_BY_KIND[input.kind]) return;
+
+  const delta = input.actualMicroUsd - estimatedMicroUsd(input.kind);
+  if (delta === 0) return;
+
+  try {
+    const user = await db.user.findUnique({
+      where: { id: input.userId },
+      select: { clerkUserId: true },
+    });
+    if (!user?.clerkUserId) return;
+    const account = await accounts.findByClerkUserId(user.clerkUserId);
+    if (!account) return;
+    await entitlements.settleAi(account.id, GERMANPASS_SLUG, delta);
+  } catch (e) {
+    warn("settleKebraneAi", e);
   }
 }
 

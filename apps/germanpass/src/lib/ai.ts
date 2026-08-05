@@ -5,6 +5,7 @@
  */
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { reserveKebraneAi, settleKebraneAi } from "@/lib/kebrane";
 
 export class AiBudgetExceededError extends Error {
   constructor() {
@@ -27,8 +28,32 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
   return (inputTokens * p.in + outputTokens * p.out) / 1_000_000;
 }
 
-/** Coupure douce : vérifie la dépense du mois courant avant un appel coûteux. */
-export async function checkBudget(userId: string | null): Promise<void> {
+/**
+ * Coupure douce : vérifie la dépense avant un appel coûteux.
+ *
+ * Deux plafonds cohabitent, volontairement :
+ *  - le **plafond mensuel historique** de GermanPass (`aiBudgetUsd` du membre,
+ *    à défaut `AI_MONTHLY_BUDGET_USER_USD`) — filet anti-catastrophe ;
+ *  - l'**enveloppe Kebrane** attachée à l'offre achetée (KB-13), qui est le
+ *    vrai instrument commercial.
+ *
+ * La réserve Kebrane est prise AVANT l'appel : refuser après avoir dépensé ne
+ * protège de rien. Elle est en OBSERVATION par défaut
+ * (`KEBRANE_AI_BUDGET_ENFORCE=0`) — voir `lib/kebrane.ts`.
+ */
+export async function checkBudget(userId: string | null, kind?: string): Promise<void> {
+  if (kind) {
+    const reservation = await reserveKebraneAi({ userId, kind });
+    if (reservation && !reservation.allowed) {
+      if (reservation.enforced) throw new AiBudgetExceededError();
+      // Mode observation : on trace le refus qu'on AURAIT prononcé, ce qui
+      // permet de mesurer l'impact du plafond avant de l'activer.
+      console.info(
+        `[kebrane/ai-budget] refus observé (${kind}) : ${reservation.reason}, ` +
+          `reste ${reservation.remainingMicroUsd} µ$`
+      );
+    }
+  }
   if (!userId) return;
   const user = await db.user.findUnique({ where: { id: userId }, select: { aiBudgetUsd: true } });
   const budget = user?.aiBudgetUsd ? Number(user.aiBudgetUsd) : env.AI_MONTHLY_BUDGET_USER_USD;
@@ -52,14 +77,19 @@ async function logUsage(params: {
   latencyMs: number;
   success: boolean;
 }): Promise<void> {
+  const costUsd = estimateCost(params.model, params.inputTokens, params.outputTokens);
   await db.aiUsage
-    .create({
-      data: {
-        ...params,
-        costUsd: estimateCost(params.model, params.inputTokens, params.outputTokens),
-      },
-    })
+    .create({ data: { ...params, costUsd } })
     .catch(() => undefined);
+
+  // Régularisation de l'enveloppe Kebrane (KB-13) : la réserve prise avant
+  // l'appel reposait sur une estimation ; ici on connaît le coût réel. Même en
+  // cas d'échec de l'appel : les tokens consommés sont facturés quand même.
+  await settleKebraneAi({
+    userId: params.userId,
+    kind: params.kind,
+    actualMicroUsd: Math.round(costUsd * 1_000_000),
+  });
 }
 
 function aiHeaders(): Record<string, string> {
@@ -80,7 +110,7 @@ export async function chatCompletion(params: {
   jsonMode?: boolean;
   temperature?: number;
 }): Promise<string> {
-  await checkBudget(params.userId);
+  await checkBudget(params.userId, params.kind);
   const model = params.model ?? env.AI_MODEL_EVALUATION;
   const start = Date.now();
   let usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -132,7 +162,7 @@ export async function chatCompletion(params: {
 }
 
 export async function embed(texts: string[], userId: string | null = null): Promise<number[][]> {
-  await checkBudget(userId);
+  await checkBudget(userId, "embedding");
   const model = env.AI_MODEL_EMBEDDING;
   const start = Date.now();
   const res = await fetch(`${env.AI_BASE_URL}/embeddings`, {
@@ -166,7 +196,7 @@ export async function transcribeImage(params: {
   images: { base64: string; mime: string }[];
   userId: string | null;
 }): Promise<string> {
-  await checkBudget(params.userId);
+  await checkBudget(params.userId, "vision_ocr");
   const model = env.VISION_MODEL;
   const start = Date.now();
   const system =
