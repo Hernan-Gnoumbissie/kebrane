@@ -69,8 +69,53 @@ model Product {
 
   accesses ProductAccess[]
   payments Payment[]
+  plans    Plan[]
 
   @@map("products")
+}
+
+/// Offre vendue pour un produit (KB-13) — ce qu'un membre achète.
+///
+/// En base et non dans le code, pour que l'administrateur puisse fixer prix et
+/// composition sans redéploiement. Mais les CLÉS de capacités, elles, restent
+/// définies dans le code (`packages/core/src/capabilities.ts`) : la base décide
+/// de ce qui est *vendu*, le code de ce qui *existe*. Sans cette limite, l'écran
+/// d'administration dérive en moteur de règles et plus personne ne sait ce qu'une
+/// offre donne réellement.
+model Plan {
+  id          String  @id @default(cuid())
+  productId   String
+  slug        String // "decouverte", "intensif", …
+  name        String
+  description String?
+
+  /// Prix dans la plus petite unité de la devise (XAF : 1 = 1 F).
+  priceAmount Int
+  currency    String @default("XAF")
+  /// Durée d'accès ouverte par un paiement confirmé.
+  durationDays Int
+
+  /// Clés de capacités incluses — voir `CAPABILITIES` côté code.
+  capabilities String[]
+
+  /// Enveloppe IA, en MICRO-DOLLARS (1 000 000 = 1 $).
+  ///
+  /// L'unité est le dollar, pas un « point » maison : c'est déjà celle que
+  /// mesure `AiUsage.costUsd` côté produit, et elle reste juste quand le tarif
+  /// d'un modèle change. Ce qu'on affiche au membre (« 40 corrections
+  /// incluses ») est un calcul, pas un stockage.
+  aiBudgetMicroUsd Int @default(0)
+
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@unique([productId, slug])
+  @@map("plans")
 }
 
 enum ProductStatus {
@@ -86,8 +131,24 @@ model ProductAccess {
   productId String
   status    AccessStatus @default(NONE)
   plan      String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+
+  /// Fin de l'accès payant. `null` = pas d'échéance (accès manuel, gratuit).
+  expiresAt DateTime?
+
+  /// RECOPIE des capacités de l'offre au moment de l'achat (KB-13).
+  ///
+  /// Recopiées, et non lues à travers `Plan` : un administrateur qui modifie la
+  /// composition d'une offre ne doit pas changer ce qu'un membre a déjà payé.
+  /// C'est l'erreur classique de ce genre de système, et elle est pénible à
+  /// rattraper une fois des paiements réels en base.
+  capabilities String[]
+
+  /// Enveloppe IA accordée et déjà consommée, en micro-dollars.
+  aiBudgetMicroUsd Int @default(0)
+  aiUsedMicroUsd   Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -140,8 +201,18 @@ model Payment {
   id        String @id @default(cuid())
   accountId String
   productId String
-  /// Offre souscrite ; recopiée dans `ProductAccess.plan` à la confirmation.
+  /// Slug de l'offre souscrite ; recopié dans `ProductAccess.plan`.
   plan      String
+  /// Offre référencée quand elle existe au catalogue. Nullable : un
+  /// encaissement manuel peut précéder la mise au catalogue, et une offre
+  /// retirée ne doit pas effacer l'historique comptable.
+  planId    String?
+
+  /// RECOPIE de ce que l'offre donnait AU MOMENT DE L'ACHAT. C'est cette copie
+  /// qui fait foi, pas l'offre courante — sinon modifier un pack changerait
+  /// rétroactivement ce que des membres ont payé.
+  capabilities     String[]
+  aiBudgetMicroUsd Int      @default(0)
 
   /// Montant dans la PLUS PETITE unité de la devise. Le franc CFA n'a pas de
   /// subdivision (1 XAF = 1), mais on garde un entier générique pour ne pas
@@ -167,8 +238,9 @@ model Payment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  planRef   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   @@unique([provider, providerRef])
   @@index([accountId])

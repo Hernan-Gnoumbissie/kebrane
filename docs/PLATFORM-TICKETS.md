@@ -345,6 +345,79 @@ la triple confirmation, le webhook rejoué, la charge utile étrangère ignorée
 refus d'un canal non couvert par l'adaptateur, le refus d'un montant non entier ou négatif,
 et le plan qui suit le dernier paiement confirmé.
 
+---
+
+#### KB-13b · Modèle économique : freemium, offres en base, enveloppe IA
+**Décisions PO du 4 août 2026 — actées et implémentées.**
+
+**Le modèle.** Les **cours et les examens blancs sont libres**, ainsi que la progression.
+La rareté porte sur la **seule correction IA**. La logique n'est pas « offrir pour attirer »
+mais **aligner le prix sur le coût** : servir du contenu statique ne coûte presque rien,
+corriger consomme de l'IA à chaque copie. Bénéfice secondaire : du contenu ouvert est
+indexable, donc il travaille pour l'acquisition.
+
+**Un essai qui montre le produit, pas sa coquille.** Le palier gratuit inclut **une
+correction complète**, feedback compris. Un examen sans correction ne démontrerait rien et
+reviendrait à faire acheter à l'aveugle — objection du PO, retenue.
+
+**Compter en dollars, afficher en corrections.** L'unité interne est le **micro-dollar**
+(1 000 000 = 1 $), celle que mesure déjà `AiUsage.costUsd` côté produit. Aucune monnaie
+maison : une unité inventée devrait être réétalonnée à chaque changement de tarif
+fournisseur. Ce que voit le membre (« 40 corrections incluses ») est un **calcul**, pas un
+stockage. C'est le choix que font Claude et ChatGPT côté grand public — le compteur existe,
+il n'est pas mis sous le nez de l'utilisateur, ce qui évite le rationnement permanent.
+Les crédits visibles fonctionnent quand l'utilisateur décide consciemment chaque tir
+(Midjourney) ; ce n'est pas le cas ici. **À l'épuisement : blocage jusqu'au renouvellement**,
+sans vente de complément.
+
+**Les prix ne bougent pas, et c'est un résultat, pas une inaction.** À ~0,02 $ la correction
+écrite (estimation, cf. `ai:cost`), une enveloppe de 40 coûte ~0,80 $ — **6 %** d'un Intensif
+à 8 000 F. Le plafond protège de l'**abus**, pas de l'usage normal, d'où des enveloppes
+généreuses : 10 / 40 / 120 / 500 corrections. ⚠ Le plafond existant
+`AI_MONTHLY_BUDGET_USER_USD=5` est **surdimensionné** (≈250 corrections, 38 % du prix) : il
+est appelé à être remplacé par l'enveloppe par offre. La vraie contrainte de rentabilité est
+ailleurs — l'hébergement est un **coût fixe**, donc le seuil dépend du nombre d'abonnés.
+
+**Le code dit ce qui EXISTE, la base dit ce qui est VENDU.** Les clés de capacités vivent
+dans `packages/core/src/capabilities.ts` ; l'offre (`Plan`, en base) choisit lesquelles elle
+inclut. L'administrateur composera les packs sans pouvoir inventer une capacité — sans cette
+limite, l'écran d'administration dérive en moteur de règles et plus personne ne sait ce qu'un
+pack donne. Le palier gratuit est lui aussi dans le code : c'est une promesse publique, pas
+un paramètre commercial qu'on retire d'un clic.
+
+**Recopie à l'achat — l'invariant central.** `Payment` **et** `ProductAccess` conservent une
+copie des capacités et de l'enveloppe telles qu'elles étaient à l'achat. Modifier un pack ne
+change donc **pas** ce qu'un membre a déjà payé. C'est l'erreur classique de ce genre de
+système, et elle est très pénible à rattraper une fois des paiements réels en base.
+**Prouvé mordant** : en faisant lire l'offre courante au lieu de la recopie, **seul** le test
+« ce qui a été payé reste dû » est passé au rouge.
+
+**Deux règles tranchées sans arbitrage PO** (signalées, à confirmer) :
+1. *L'échéance prime sur le statut* — un accès expiré retombe au gratuit même si son statut
+   dit `ACTIVE`.
+2. *La consommation reste comptée après expiration* — sinon laisser expirer son abonnement
+   redonnerait la correction offerte à chaque échéance.
+
+**Capacités réservées, non implémentées.** `tutor.chat` (chat ancré dans une leçon) et
+`library.dictionary`. Les nommer aujourd'hui ne coûte rien et évite une migration : les
+activer sera une ligne de configuration dans une offre. ⚠ Le chat devra être **payant** :
+une correction est un coup unique, une **conversation est non bornée** — sur du contenu
+gratuit, elle rendrait le coût marginal proportionnel au trafic gratuit. Le dictionnaire,
+servi en données statiques, coûte zéro à l'usage : candidat naturel au gratuit (attention à
+la licence des données — le Wiktionnaire est réutilisable sous attribution et partage à
+l'identique).
+
+**Vérifié** : **52 tests `@kebrane/core`**, `typecheck` vert, seed joué sur la base de dev
+(4 produits, 4 offres). Couvre : le palier gratuit d'un compte sans aucun accès, la
+correction offerte puis refusée une fois consommée, le chat non offert, l'échéance posée à
+la bonne date, la recopie opposable, la consommation qui survit à l'expiration, le refus
+d'une capacité inconnue ou d'une durée nulle, et la cohérence commerciale du registre (plus
+long ⇒ plus cher ⇒ plus d'IA).
+
+**Reste à faire** : paywall et `/tarifs` lisant `plans.forProduct()` ; branchement du
+crochet `entitlements.reserveAi()` dans GermanPass **avant** chaque appel IA (refuser après
+avoir dépensé ne protège de rien) ; écran d'administration des offres (KB-15).
+
 **Acceptation** : [x] l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; [x] changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits (prouvé par deux adaptateurs fictifs dans les tests) ; [x] le filet « preuve + admin » reste utilisable.
 **Fichiers** : `packages/core/src/billing.ts`, `packages/db/prisma/schema.prisma`, `apps/kebrane` (paywall/tarifs — à faire), `apps/germanpass` (bascule enforce — à faire).
 **Décisions PO restantes** : résultat des 3 vérifs KPay → adaptateur retenu ; **grille tarifaire des offres** (montants + périodicités) — c'est elle qui débloque le paywall et `/tarifs`.

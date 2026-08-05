@@ -26,7 +26,14 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.__kebranePrisma = db;
 
 // Ré-exports EXPLICITES (pas de `export *`) : le client généré est un module
 // CommonJS, dont Turbopack ne connaît les exports qu'à l'exécution.
-export type { Account, Product, ProductAccess, Event, Payment } from "@kebrane/prisma-client";
+export type {
+  Account,
+  Product,
+  ProductAccess,
+  Event,
+  Payment,
+  Plan,
+} from "@kebrane/prisma-client";
 export {
   Role,
   ProductStatus,

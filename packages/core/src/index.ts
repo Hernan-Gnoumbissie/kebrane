@@ -8,6 +8,20 @@ import { PRODUCT_REGISTRY } from "./registry";
 export type { Account, Product, ProductAccess } from "@kebrane/db";
 export { AccessStatus, ProductStatus, Role } from "@kebrane/db";
 export { PRODUCT_REGISTRY, type ProductDefinition } from "./registry";
+// Capacités vendables et palier gratuit (KB-13) — le CODE dit ce qui existe.
+export {
+  CAPABILITIES,
+  ALL_CAPABILITIES,
+  FREE_CAPABILITIES,
+  FREE_AI_BUDGET_MICRO_USD,
+  MICRO_USD_PER_USD,
+  isKnownCapability,
+  type Capability,
+} from "./capabilities";
+// Catalogue des offres (KB-13) — la BASE dit ce qui est vendu.
+export { plans, PLAN_REGISTRY, type PlanDefinition, type Plan } from "./plans";
+// Droits effectifs + enveloppe IA (KB-13).
+export { entitlements, type Entitlement } from "./entitlements";
 // Module `billing` (KB-13) — encaissement agnostique du fournisseur.
 export {
   billing,

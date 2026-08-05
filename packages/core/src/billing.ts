@@ -13,6 +13,7 @@ import { db } from "@kebrane/db";
 import type { Payment } from "@kebrane/db";
 import { AccessStatus, PaymentChannel, PaymentStatus } from "@kebrane/db";
 import { access, events, products } from "./index";
+import { plans } from "./plans";
 
 export type { Payment } from "@kebrane/db";
 export { PaymentChannel, PaymentStatus } from "@kebrane/db";
@@ -129,6 +130,12 @@ export const billing = {
     const product = await products.bySlug(request.productSlug);
     if (!product) throw new Error(`Produit inconnu au registre : ${request.productSlug}`);
 
+    // L'offre au catalogue, si elle existe. On RECOPIE ce qu'elle donne sur le
+    // paiement : c'est cette copie qui fera foi à la confirmation, pas l'offre
+    // courante. Un administrateur qui modifie un pack ne doit pas changer
+    // rétroactivement ce qu'un membre a payé.
+    const plan = await plans.bySlug(request.productSlug, request.plan);
+
     const result = await provider.createCollection(request);
 
     // Un fournisseur peut confirmer d'emblée. On persiste quand même EN ATTENTE
@@ -144,6 +151,9 @@ export const billing = {
         accountId: request.accountId,
         productId: product.id,
         plan: request.plan,
+        planId: plan?.id ?? null,
+        capabilities: plan?.capabilities ?? [],
+        aiBudgetMicroUsd: plan?.aiBudgetMicroUsd ?? 0,
         amount: request.amount,
         currency: request.currency ?? "XAF",
         provider: provider.name,
@@ -209,6 +219,30 @@ export const billing = {
         slug: product.slug,
         status: AccessStatus.ACTIVE,
         plan: payment.plan,
+      });
+
+      // Application de l'offre TELLE QU'ACHETÉE (recopie faite à la demande
+      // d'encaissement), et non telle qu'elle est aujourd'hui au catalogue.
+      const planRef = payment.planId
+        ? await db.plan.findUnique({ where: { id: payment.planId } })
+        : null;
+      const durationDays = planRef?.durationDays ?? null;
+      const expiresAt = durationDays
+        ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
+        : null;
+
+      await db.productAccess.update({
+        where: {
+          accountId_productId: { accountId: payment.accountId, productId: payment.productId },
+        },
+        data: {
+          expiresAt,
+          capabilities: payment.capabilities,
+          aiBudgetMicroUsd: payment.aiBudgetMicroUsd,
+          // Le compteur repart à zéro : l'enveloppe est celle de la période
+          // achetée, pas un cumul depuis la création du compte.
+          aiUsedMicroUsd: 0,
+        },
       });
     }
 
