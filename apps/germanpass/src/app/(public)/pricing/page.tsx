@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { OFFERS, getPaymentMethods, ACTIVATION_STEPS } from "@/lib/pricing";
+import { getOffers, getPaymentMethods, ACTIVATION_STEPS } from "@/lib/pricing";
+
+// Le catalogue vit en base (KB-13) : la page ne peut pas être figée au build.
+export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Tarifs & paiement" };
 
@@ -14,6 +17,8 @@ export default async function PricingPage({
 }) {
   const params = await searchParams;
   const paymentMethods = getPaymentMethods();
+  // Catalogue Core, avec repli sur la grille locale si la base ne répond pas.
+  const { offers } = await getOffers();
 
   return (
     <main className="container max-w-4xl space-y-8 py-10">
@@ -38,8 +43,31 @@ export default async function PricingPage({
         </p>
       </div>
 
+      {/* Ce qui est libre — annoncé AVANT les tarifs. Le modèle freemium ne se
+          comprend que si l'on voit d'abord ce qu'on obtient sans payer. */}
+      <Card className="border-ciel/40 bg-ciel/10">
+        <CardHeader>
+          <CardTitle className="text-lg">Gratuit, sans limite de temps</CardTitle>
+          <CardDescription>
+            Créez un compte et travaillez immédiatement — aucun paiement demandé.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-1.5 text-sm">
+            <li>✓ Tous les cours, du A1 au C2</li>
+            <li>✓ Les examens blancs, en illimité</li>
+            <li>✓ Votre progression et vos statistiques</li>
+            <li>✓ <strong>Une correction écrite offerte</strong>, complète — pour juger sur pièce</li>
+          </ul>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Les formules ci-dessous ne débloquent qu&apos;une chose : la{" "}
+            <strong>correction automatique</strong> de vos productions écrites et orales.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {OFFERS.map((o) => (
+        {offers.map((o) => (
           <Card key={o.days} className={o.highlight ? "border-primary shadow-md" : undefined}>
             <CardHeader>
               <CardTitle className="text-base">{o.name}</CardTitle>
@@ -49,6 +77,11 @@ export default async function PricingPage({
               <p className="text-2xl font-bold">
                 {XAF.format(o.priceXaf)} <span className="text-sm font-normal">FCFA</span>
               </p>
+              {o.corrections ? (
+                <p className="text-sm font-medium text-primary">
+                  ~{o.corrections} corrections incluses
+                </p>
+              ) : null}
               <p className="text-sm text-muted-foreground">{o.description}</p>
             </CardContent>
           </Card>

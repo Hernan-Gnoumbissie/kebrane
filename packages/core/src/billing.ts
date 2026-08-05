@@ -74,7 +74,12 @@ export interface PaymentProvider {
  */
 export const manualProofProvider: PaymentProvider = {
   name: "manual-proof",
-  channels: [PaymentChannel.MTN_MOMO, PaymentChannel.ORANGE_MONEY, PaymentChannel.MANUAL],
+  channels: [
+    PaymentChannel.MTN_MOMO,
+    PaymentChannel.ORANGE_MONEY,
+    PaymentChannel.PAYPAL,
+    PaymentChannel.MANUAL,
+  ],
 
   async createCollection(request) {
     // Aucun appel réseau : l'encaissement a lieu hors du système. On ouvre une

@@ -5,15 +5,26 @@
  * Les durées (7/30/90/365 j) correspondent aux validations admin (ALLOWED_GRANT_DAYS).
  */
 import { env } from "@/lib/env";
+import { getKebranePlans, estimatedMicroUsd } from "@/lib/kebrane";
 
 export type Offer = {
   days: 7 | 30 | 90 | 365;
   name: string;
-  priceXaf: number; // FCFA — à personnaliser
+  priceXaf: number; // FCFA
   description: string;
+  /** Corrections IA incluses. Absent sur le repli local, qui ne les connaît pas. */
+  corrections?: number;
   highlight?: boolean;
 };
 
+/**
+ * Grille LOCALE — désormais un REPLI, plus la source de vérité (KB-13).
+ *
+ * Le catalogue vit dans Core (`plans`), où l'administrateur pourra en fixer prix
+ * et composition. Cette liste ne sert que si Core est indisponible ou si le seed
+ * n'a jamais été joué : mieux vaut une vitrine servie par un repli qu'une page
+ * en erreur. Elle doit donc rester alignée sur `PLAN_REGISTRY`.
+ */
 export const OFFERS: Offer[] = [
   {
     days: 7,
@@ -41,6 +52,41 @@ export const OFFERS: Offer[] = [
     description: "12 mois d'accès — parcours A1 → C2 sans interruption.",
   },
 ];
+
+/**
+ * Nombre de corrections écrites que représente une enveloppe IA.
+ *
+ * On compte en dollars et on AFFICHE en corrections : « 40 corrections
+ * incluses » se comprend sans calcul, là où un solde de points obligerait le
+ * membre à faire de l'arithmétique avant chaque action — et donc à se rationner.
+ *
+ * ⚠ Le diviseur est une ESTIMATION (voir `lib/kebrane.ts`), pas une mesure :
+ * ce nombre est un ordre de grandeur, à réviser avec `ai:cost`.
+ */
+export function correctionsIncluses(aiBudgetMicroUsd: number): number {
+  return Math.floor(aiBudgetMicroUsd / estimatedMicroUsd("writing_eval"));
+}
+
+/**
+ * Offres à afficher : le catalogue Core s'il répond, la grille locale sinon.
+ * Source unique en fonctionnement normal ; repli seulement en cas de panne.
+ */
+export async function getOffers(): Promise<{ offers: Offer[]; source: "core" | "repli" }> {
+  const plans = await getKebranePlans();
+  if (!plans) return { offers: OFFERS, source: "repli" };
+
+  return {
+    source: "core",
+    offers: plans.map((p) => ({
+      days: p.durationDays as Offer["days"],
+      name: p.name,
+      priceXaf: p.priceAmount,
+      description: p.description ?? "",
+      corrections: correctionsIncluses(p.aiBudgetMicroUsd),
+      highlight: p.slug === "intensif",
+    })),
+  };
+}
 
 export type PaymentMethod = {
   name: string;

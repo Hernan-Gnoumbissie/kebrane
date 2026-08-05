@@ -436,8 +436,35 @@ Le pont `lib/kebrane.ts` reste la seule porte vers Core (frontière v0.2).
 - **Les deux plafonds cohabitent** volontairement : celui de GermanPass (mensuel,
   anti-catastrophe) reste ; celui de Kebrane (par offre) devient l'instrument commercial.
 
-**Reste à faire** : paywall et `/tarifs` lisant `plans.forProduct()` ; écran
-d'administration des offres (KB-15) ; puis bascule des deux drapeaux d'enforcement.
+**Tarifs et paywall (4 août 2026).** `/pricing` lit `plans.forProduct()` de Core, avec
+**repli** sur la grille locale si la base ne répond pas — même schéma qu'en KB-19 : mieux
+vaut une vitrine servie par un repli qu'une page en erreur. `lib/pricing.ts` n'est donc plus
+la source de vérité, seulement un filet, et il est annoté comme tel.
+
+- **La page annonce d'abord ce qui est GRATUIT**, avant les prix. Un modèle freemium ne se
+  comprend pas si l'on voit les tarifs en premier : le visiteur croit devoir payer pour les
+  cours. La phrase est explicite — « les formules ne débloquent qu'une chose, la correction
+  automatique ».
+- **Le paywall est un compteur, pas un mur.** Le composant `AiQuota` a deux états et vit en
+  haut de « Mon compte » : le membre voit son enveloppe **fondre avant** de buter dessus.
+  Un paywall qui surgit sans prévenir est vécu comme un piège ; un compteur visible est une
+  information. À l'épuisement, le message reste vrai : *seule* la correction est suspendue,
+  cours et examens blancs continuent.
+- **On affiche « ~40 », pas « 40 ».** Le nombre divise une enveloppe en dollars par un coût
+  **estimé** : promettre un compte exact qu'on ne tiendrait pas serait pire qu'annoncer une
+  approximation.
+
+**Canal `PAYPAL`** (migration `20260805211359_kb13_canal_paypal`). Ce n'est pas une entorse
+au choix mobile money : GermanPass prépare des départs pour l'Allemagne, et une part des
+abonnements est financée par de la famille **déjà sur place**, qui n'a ni MTN ni Orange.
+Sans ce canal, ces paiements tomberaient en `MANUAL` et la part venant de la diaspora
+serait invisible dans les comptes. ⚠ À vérifier côté PayPal : la **réception** de fonds est
+restreinte au Cameroun — contrainte du prestataire, pas du modèle.
+
+**Reste à faire** : écran d'administration des offres (KB-15) ; bascule des deux drapeaux
+d'enforcement une fois les coûts mesurés ; et **réécrire `ACTIVATION_STEPS`** le jour où un
+PSP encaisse automatiquement — le texte décrit aujourd'hui le parcours « payez, envoyez la
+preuve, un admin valide », exact tant que le filet de lancement est en service.
 
 **Acceptation** : [x] l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; [x] changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits (prouvé par deux adaptateurs fictifs dans les tests) ; [x] le filet « preuve + admin » reste utilisable.
 **Fichiers** : `packages/core/src/billing.ts`, `packages/db/prisma/schema.prisma`, `apps/kebrane` (paywall/tarifs — à faire), `apps/germanpass` (bascule enforce — à faire).

@@ -248,12 +248,20 @@ model Payment {
   @@map("payments")
 }
 
-/// Canal d'encaissement. `MANUAL` couvre le filet de lancement (preuve de
-/// paiement + validation admin), qui reste opérationnel pendant l'intégration
-/// du PSP.
+/// Canal d'encaissement — le MOYEN, indépendamment du fournisseur qui l'opère.
+///
+/// `PAYPAL` n'est pas un oubli du modèle mobile money : GermanPass prépare des
+/// départs pour l'Allemagne, et une part des abonnements est financée par de la
+/// famille déjà sur place, qui n'a ni MTN ni Orange. Sans ce canal, ces
+/// paiements tomberaient en `MANUAL` et la part venant de la diaspora
+/// deviendrait invisible dans les comptes.
+///
+/// `MANUAL` reste le filet de lancement (preuve de paiement + validation admin),
+/// opérationnel pendant l'intégration du PSP.
 enum PaymentChannel {
   MTN_MOMO
   ORANGE_MONEY
+  PAYPAL
   MANUAL
 }
 
