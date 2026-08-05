@@ -179,6 +179,31 @@ export async function getKebranePlans(): Promise<Plan[] | null> {
 }
 
 /**
+ * Le compte Kebrane lié est-il administrateur de la MAISON (rôle `ADMIN` de
+ * KB-20) ?
+ *
+ * Distinct du rôle administrateur de GermanPass : administrer un produit
+ * (valider des preuves, gérer des inscrits) n'est pas fixer les prix de la
+ * plateforme. Cette séparation ne coûte rien tant qu'une seule personne porte
+ * les deux casquettes, et devient nécessaire dès la première délégation.
+ *
+ * Retourne `null` quand Core n'a pas d'avis (pont désactivé, compte non lié,
+ * base en erreur). Les appelants qui ÉCRIVENT doivent traiter `null` comme un
+ * refus : sur un chemin qui touche à de l'argent, l'incertitude n'autorise pas.
+ */
+export async function isKebraneAdmin(clerkUserId: string | null): Promise<boolean | null> {
+  if (!CORE_ENABLED || !clerkUserId) return null;
+  try {
+    const account = await accounts.findByClerkUserId(clerkUserId);
+    if (!account) return null;
+    return account.role === "ADMIN";
+  } catch (e) {
+    warn("isKebraneAdmin", e);
+    return null;
+  }
+}
+
+/**
  * Modifie une offre du catalogue Core depuis l'écran d'administration (KB-13).
  *
  * ⚠ Emplacement PROVISOIRE. Les offres sont un objet de plateforme, pas de

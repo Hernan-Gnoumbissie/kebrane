@@ -781,7 +781,25 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 - **Consolider/documenter** les variables par app : `KEBRANE_DATABASE_URL`, `DATABASE_URL`, `KEBRANE_ACCESS_ENFORCE`, `CLERK_FRONTEND_API_ORIGIN`, `GERMANPASS_URL`, `NEXT_PUBLIC_*`. `.env.example` complets et à jour.
 - **DNS** : sous-domaines `app.` / `germanpass.` (+ `admin.`) de `kebrane.com` ; **instance Clerk de prod** + provisioning `clerk.kebrane.com` ; renseigner `CLERK_FRONTEND_API_ORIGIN`.
 - **PostgreSQL de prod** (hébergeur — décision PO) ; **répliquer la CSP Clerk** dans `apps/germanpass/deploy/nginx.conf`.
-- Rejouer `pnpm --filter @kebrane/core seed` (registre) + `pnpm --filter @kebrane/germanpass kebrane:backfill` **au déploiement**.
+- Rejouer `pnpm --filter @kebrane/core seed` (registre **et offres**, KB-13) + `pnpm --filter @kebrane/germanpass kebrane:backfill` **au déploiement**.
+- **Premier administrateur — séquence exacte (décidée le 6 août 2026).** L'adresse retenue
+  est **nominative sur le domaine** (`hernan@kebrane.com`, IONOS) : elle est vue des clients
+  dans les échanges de support, et une adresse partagée type `admin@` détruirait la
+  traçabilité de KB-13 (le journal doit dire *qui* a changé un prix). Les adresses de rôle
+  (`contact@`, `no-reply@`) servent à envoyer et recevoir, jamais à se connecter.
+  1. Créer la boîte chez IONOS.
+  2. `KEBRANE_BOOTSTRAP_ADMIN_EMAIL=hernan@kebrane.com` dans `apps/kebrane`.
+  3. S'inscrire avec cette adresse — le compte **naît `ADMIN`** (KB-20), rien à lancer.
+  4. **Retirer la variable et redéployer.** Non cosmétique : tant qu'elle traîne, le
+     prochain compte créé avec cette adresse serait promu en silence.
+  ⚠ `grant-admin` ne convient PAS ici — il exige que le compte existe déjà. Il sert ensuite,
+  pour promouvoir quelqu'un d'autre. Sans ce rôle, l'écran `/admin/offres` reste en **lecture
+  seule** (KB-13) : c'est le premier écueil d'un déploiement neuf.
+- ⚠ **`user.updated` n'est pas traité** par le webhook Clerk (KB-17). Changer d'adresse de
+  connexion après coup laisse l'email **périmé côté Core** — la liaison survit (elle se fait
+  sur `clerkUserId`), mais `grant-admin <nouvelle adresse>` ne retrouverait plus le compte et
+  le support afficherait l'ancienne. D'où l'intérêt de fixer l'adresse **avant** le premier
+  déploiement. À défaut, ajouter le handler.
 - Dérouler le **parcours SSO connecté réel** (« hub → Ouvrir GermanPass → retour ») — le reste-à-faire de KB-10.
 **Acceptation** : les deux apps déployables sur sous-domaines ; SSO connecté prouvé de bout en bout ; seed + backfill intégrés au déploiement.
 **Décisions PO** : hébergeur PostgreSQL de prod ; confirmation topologie **sous-domaines** (déjà tranchée de fait par KB-10, à valider).

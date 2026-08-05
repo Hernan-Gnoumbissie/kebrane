@@ -42,6 +42,7 @@ export default function AdminOffresPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [coreAvailable, setCoreAvailable] = useState(true);
+  const [canEdit, setCanEdit] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -51,11 +52,16 @@ export default function AdminOffresPage() {
       setErr("Chargement impossible.");
       return;
     }
-    const data: { plans: Plan[]; capabilities: string[]; coreAvailable: boolean } =
-      await res.json();
+    const data: {
+      plans: Plan[];
+      capabilities: string[];
+      coreAvailable: boolean;
+      canEdit: boolean;
+    } = await res.json();
     setPlans(data.plans);
     setCapabilities(data.capabilities);
     setCoreAvailable(data.coreAvailable);
+    setCanEdit(data.canEdit);
   }
 
   useEffect(() => {
@@ -107,6 +113,14 @@ export default function AdminOffresPage() {
         <p role="alert" className="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
           Le catalogue Kebrane est injoignable : la page des tarifs affiche actuellement sa
           grille de repli. Aucune modification n&apos;est possible d&apos;ici.
+        </p>
+      ) : null}
+      {coreAvailable && !canEdit ? (
+        <p role="alert" className="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
+          <strong>Lecture seule.</strong> Fixer les tarifs de la maison Kebrane demande le
+          rôle <code>ADMIN</code> au niveau de la plateforme — distinct de l&apos;administration
+          de GermanPass. À accorder avec :{" "}
+          <code>pnpm --filter @kebrane/core grant-admin votre@email</code>
         </p>
       ) : null}
       {err ? (
@@ -223,7 +237,7 @@ export default function AdminOffresPage() {
                 </div>
               </fieldset>
 
-              <Button type="submit" disabled={!coreAvailable}>
+              <Button type="submit" disabled={!coreAvailable || !canEdit}>
                 Enregistrer
               </Button>
             </form>
