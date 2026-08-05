@@ -6,7 +6,7 @@
 import { db } from "@kebrane/db";
 import type { Plan } from "@kebrane/db";
 import { CAPABILITIES, isKnownCapability, type Capability } from "./capabilities";
-import { products } from "./index";
+import { events, products } from "./index";
 
 export type { Plan } from "@kebrane/db";
 
@@ -111,8 +111,12 @@ export const plans = {
     });
   },
 
-  /** Déclare/actualise une offre. Idempotent par (produit, slug). */
-  async upsert(definition: PlanDefinition): Promise<Plan> {
+  /**
+   * Déclare/actualise une offre. Idempotent par (produit, slug).
+   * `source` distingue le seed, l'écran d'administration et les tests — sans
+   * quoi toutes les lignes du journal se ressembleraient.
+   */
+  async upsert(definition: PlanDefinition, options: { source?: string } = {}): Promise<Plan> {
     const product = await products.bySlug(definition.productSlug);
     if (!product) throw new Error(`Produit inconnu au registre : ${definition.productSlug}`);
 
@@ -142,11 +146,58 @@ export const plans = {
       sortOrder: definition.sortOrder ?? 0,
     };
 
-    return db.plan.upsert({
+    const before = await db.plan.findUnique({
+      where: { productId_slug: { productId: product.id, slug: definition.slug } },
+    });
+
+    const saved = await db.plan.upsert({
       where: { productId_slug: { productId: product.id, slug: definition.slug } },
       update: data,
       create: { productId: product.id, slug: definition.slug, ...data },
     });
+
+    // Toucher à un prix, c'est toucher à de l'argent : ça se trace. Le journal
+    // doit permettre de répondre à « qui a changé le prix de l'Intensif, et
+    // quand ». Idempotent : un seed rejoué à l'identique n'écrit rien au journal.
+    const changed =
+      !before ||
+      before.priceAmount !== saved.priceAmount ||
+      before.durationDays !== saved.durationDays ||
+      before.aiBudgetMicroUsd !== saved.aiBudgetMicroUsd ||
+      before.active !== saved.active ||
+      before.capabilities.join(",") !== saved.capabilities.join(",");
+
+    if (changed) {
+      await events.log({
+        type: before ? "plan.changed" : "plan.created",
+        severity: "IMPORTANT",
+        productId: product.id,
+        data: {
+          plan: saved.slug,
+          source: options.source ?? "service",
+          ...(before
+            ? {
+                from: {
+                  price: before.priceAmount,
+                  days: before.durationDays,
+                  ai: before.aiBudgetMicroUsd,
+                  active: before.active,
+                  capabilities: before.capabilities,
+                },
+              }
+            : {}),
+          to: {
+            price: saved.priceAmount,
+            days: saved.durationDays,
+            ai: saved.aiBudgetMicroUsd,
+            active: saved.active,
+            capabilities: saved.capabilities,
+          },
+        },
+      });
+    }
+
+    return saved;
   },
 
   /**
@@ -159,7 +210,7 @@ export const plans = {
   async syncRegistry(): Promise<Plan[]> {
     const synced: Plan[] = [];
     for (const definition of PLAN_REGISTRY) {
-      synced.push(await plans.upsert(definition));
+      synced.push(await plans.upsert(definition, { source: "seed" }));
     }
     return synced;
   },

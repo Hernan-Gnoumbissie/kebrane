@@ -178,6 +178,35 @@ export async function getKebranePlans(): Promise<Plan[] | null> {
   }
 }
 
+/**
+ * Modifie une offre du catalogue Core depuis l'écran d'administration (KB-13).
+ *
+ * ⚠ Emplacement PROVISOIRE. Les offres sont un objet de plateforme, pas de
+ * produit : leur écran a vocation à vivre dans `apps/admin` (KB-15). En
+ * attendant, il est ici parce que c'est là que les administrateurs sont déjà, et
+ * qu'un écran qui n'existe pas ne sert personne. La frontière v0.2 est
+ * respectée — tout passe par `plans.upsert()`, jamais par les tables.
+ *
+ * Lève en cas d'échec, contrairement au reste du pont : ici l'administrateur
+ * DOIT savoir que son changement de prix n'a pas été enregistré.
+ */
+export async function updateKebranePlan(input: {
+  slug: string;
+  name: string;
+  description?: string;
+  priceAmount: number;
+  durationDays: number;
+  capabilities: Capability[];
+  aiBudgetMicroUsd: number;
+  sortOrder?: number;
+}): Promise<Plan> {
+  if (!CORE_ENABLED) throw new Error("Catalogue indisponible : KEBRANE_DATABASE_URL absent.");
+  return plans.upsert(
+    { productSlug: GERMANPASS_SLUG, ...input },
+    { source: "admin-germanpass" }
+  );
+}
+
 /** Droits effectifs d'un utilisateur GermanPass (capacités + enveloppe IA). */
 export async function getKebraneEntitlement(
   user: Pick<ProductUserView, "clerkUserId">

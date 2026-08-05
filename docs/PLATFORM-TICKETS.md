@@ -461,10 +461,34 @@ Sans ce canal, ces paiements tomberaient en `MANUAL` et la part venant de la dia
 serait invisible dans les comptes. ⚠ À vérifier côté PayPal : la **réception** de fonds est
 restreinte au Cameroun — contrainte du prestataire, pas du modèle.
 
-**Reste à faire** : écran d'administration des offres (KB-15) ; bascule des deux drapeaux
-d'enforcement une fois les coûts mesurés ; et **réécrire `ACTIVATION_STEPS`** le jour où un
-PSP encaisse automatiquement — le texte décrit aujourd'hui le parcours « payez, envoyez la
-preuve, un admin valide », exact tant que le filet de lancement est en service.
+**Écran d'administration des offres (4 août 2026)** — `/admin/offres` dans GermanPass, avec
+sa route `/api/admin/offres` (GET + PUT, gardée par `requireAdmin`). Permet de modifier nom,
+prix, durée, description, corrections incluses et composition de chaque offre.
+
+- **L'écran ne propose que les capacités du CODE.** Les cases à cocher sont alimentées par
+  `ALL_CAPABILITIES` : l'administrateur compose, il n'invente pas. C'est cette limite qui
+  empêche l'écran de dériver en moteur de règles.
+- **Traçabilité ajoutée à `plans.upsert()`** : chaque changement émet `plan.changed` (ou
+  `plan.created`) en gravité **IMPORTANT**, avec l'écart avant/après et la `source`
+  (`seed`, `admin-germanpass`, `service`). Le journal répond désormais à « qui a changé le
+  prix de l'Intensif, et quand » — ce qu'il ne savait pas faire. Idempotent : un seed rejoué
+  à l'identique n'écrit rien.
+- **L'invariant de recopie est rendu visible à celui qui l'utilise** : un bandeau rappelle
+  qu'une modification ne change **que les achats à venir**. Sans lui, un administrateur
+  baisserait une enveloppe en croyant l'appliquer aux abonnés en cours.
+- **L'écran se désarme si Core est injoignable**, avec la mention que la page publique sert
+  alors sa grille de repli — mieux qu'un enregistrement qui échoue en silence.
+
+**⚠ Emplacement PROVISOIRE.** Les offres sont un objet de **plateforme**, pas de produit :
+cet écran a vocation à rejoindre `apps/admin` (KB-15). Il est dans GermanPass parce que
+c'est là que les administrateurs sont déjà, et qu'un écran qui n'existe pas ne sert
+personne. La frontière v0.2 est tenue — tout passe par `plans.upsert()`, jamais par les
+tables Core. À déplacer avec KB-15, où il gagnera la 2FA staff.
+
+**Reste à faire** : `apps/admin` et 2FA (KB-15) ; bascule des deux drapeaux d'enforcement
+une fois les coûts mesurés ; et **réécrire `ACTIVATION_STEPS`** le jour où un PSP encaisse
+automatiquement — le texte décrit aujourd'hui le parcours « payez, envoyez la preuve, un
+admin valide », exact tant que le filet de lancement est en service.
 
 **Acceptation** : [x] l'accès produit bascule en `ACTIVE` **automatiquement** à la confirmation d'un paiement via l'adaptateur ; [x] changer de fournisseur = changer l'adaptateur, **sans** toucher Core/produits (prouvé par deux adaptateurs fictifs dans les tests) ; [x] le filet « preuve + admin » reste utilisable.
 **Fichiers** : `packages/core/src/billing.ts`, `packages/db/prisma/schema.prisma`, `apps/kebrane` (paywall/tarifs — à faire), `apps/germanpass` (bascule enforce — à faire).
