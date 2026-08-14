@@ -795,6 +795,31 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
   ⚠ `grant-admin` ne convient PAS ici — il exige que le compte existe déjà. Il sert ensuite,
   pour promouvoir quelqu'un d'autre. Sans ce rôle, l'écran `/admin/offres` reste en **lecture
   seule** (KB-13) : c'est le premier écueil d'un déploiement neuf.
+- **Adresses e-mail à configurer (6 août 2026).** Deux domaines, à dessein : le produit
+  écrit depuis **le sien** (`germanpass.io`), la maison depuis `kebrane.com`. Le client a
+  acheté GermanPass — un expéditeur `@kebrane.com` lui paraîtrait étranger, voire suspect.
+  C'est la logique « By Kebrane » appliquée au courrier.
+
+  | Adresse | Type | Usage |
+  |---|---|---|
+  | `hernan@kebrane.com` | **boîte** | Connexion admin plateforme (nominative) |
+  | `contact@kebrane.com` | alias | Entrée générique, mentions légales |
+  | `support@kebrane.com` | alias | Deviendra boîte partagée à la première délégation |
+  | `facturation@kebrane.com` | alias | Preuves de paiement, litiges, remboursements |
+  | `rgpd@kebrane.com` | alias | **Exigé** : contact identifiable pour les données personnelles |
+  | `no-reply@kebrane.com` | envoi seul | Transactionnel du hub |
+  | `postmaster@`, `abuse@` | alias | Attendus par les registrars et les filtres anti-spam |
+  | `no-reply@germanpass.io` | envoi seul | Déjà dans `SMTP_FROM` |
+  | `support@germanpass.io` | alias → `support@kebrane.com` | Une seule boîte à surveiller |
+
+  ⚠ **Jamais `admin@` comme identifiant de connexion** : le journal doit dire *qui* a changé
+  un prix (KB-13), et une adresse partagée efface cette réponse.
+
+  ⚠ **SPF, DKIM et DMARC sur les DEUX domaines.** Sans eux les messages partent en
+  indésirables — et un compte dont l'email de vérification n'arrive pas ne devient jamais
+  client. Panne silencieuse, longue à diagnostiquer. *Nuance* : les emails de vérification
+  Clerk partent des serveurs de Clerk, ils ne dépendent pas de cette configuration ; ce sont
+  les messages applicatifs (notifications, séquences marketing) qui en dépendent.
 - ⚠ **`user.updated` n'est pas traité** par le webhook Clerk (KB-17). Changer d'adresse de
   connexion après coup laisse l'email **périmé côté Core** — la liaison survit (elle se fait
   sur `clerkUserId`), mais `grant-admin <nouvelle adresse>` ne retrouverait plus le compte et

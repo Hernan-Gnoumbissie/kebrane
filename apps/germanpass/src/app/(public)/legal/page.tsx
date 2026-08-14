@@ -39,9 +39,27 @@ export default function LegalPage() {
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Contact</h2>
-        <p className="text-muted-foreground">
-          Pour toute question relative aux données personnelles : contactez l&apos;administrateur de
-          la plateforme.
+        {/* Le RGPD exige un contact IDENTIFIABLE : « l'administrateur de la
+            plateforme » ne suffisait pas. Deux adresses parce que ce sont deux
+            responsabilités — le produit répond du service, la maison Kebrane
+            répond des données. */}
+        <ul className="space-y-1 text-muted-foreground">
+          <li>
+            Questions sur le service, l&apos;abonnement ou un paiement :{" "}
+            <a className="underline" href="mailto:support@germanpass.io">
+              support@germanpass.io
+            </a>
+          </li>
+          <li>
+            Données personnelles (accès, rectification, suppression, portabilité) :{" "}
+            <a className="underline" href="mailto:rgpd@kebrane.com">
+              rgpd@kebrane.com
+            </a>
+          </li>
+        </ul>
+        <p className="text-sm text-muted-foreground">
+          GermanPass est un produit de la maison Kebrane, responsable du traitement de vos
+          données.
         </p>
       </section>
     </main>
