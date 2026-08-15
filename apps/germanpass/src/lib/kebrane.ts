@@ -370,6 +370,41 @@ export async function settleKebraneAi(input: {
   }
 }
 
+/**
+ * Publie une erreur applicative au journal Kebrane (KB-15).
+ *
+ * Gravité ACTION_REQUIRED : une erreur serveur n'est pas une information, elle
+ * appelle quelqu'un. Elle alimente donc directement le compteur d'alertes de la
+ * console d'administration, sans mécanisme séparé.
+ *
+ * ⚠ On ne transmet NI le message d'erreur complet NI la pile : le journal est
+ * lu largement, et une trace contient volontiers des jetons, des identifiants
+ * ou des fragments de données personnelles. On garde le strict nécessaire au
+ * tri — type, route, méthode —, la trace détaillée restant dans les logs
+ * serveur, dont l'accès est plus étroit.
+ */
+export async function logKebraneError(input: {
+  name: string;
+  route?: string;
+  method?: string;
+}): Promise<void> {
+  if (!CORE_ENABLED) return;
+  try {
+    await events.log({
+      type: "app.error",
+      severity: "ACTION_REQUIRED",
+      data: {
+        product: GERMANPASS_SLUG,
+        name: input.name,
+        route: input.route ?? null,
+        method: input.method ?? null,
+      },
+    });
+  } catch {
+    // Journaliser un échec ne doit jamais provoquer un second échec.
+  }
+}
+
 export interface AccessVerdict {
   allowed: boolean;
   status: AccessStatus;

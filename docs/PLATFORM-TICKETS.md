@@ -509,11 +509,56 @@ admin valide », exact tant que le filet de lancement est en service.
 ## Phase 7 — Mini-dashboard admin
 
 ### KB-15 · `apps/admin` — admin minimal + 2FA staff obligatoire
-**P2 · M · dépend de : KB-06**
-- App `admin.kebrane.com` ; **2FA staff obligatoire** (Clerk).
-- Afficher les 7 chiffres : inscrits · abonnements actifs · revenus · paiements échoués · dernière connexion · progression générale · journal d'erreurs. Pas de sur-outillage.
-**Acceptation** : les 7 indicateurs s'affichent ; accès staff protégé par 2FA.
-**Fichiers** : `apps/admin/*`.
+**P2 · M · dépend de : KB-06** — **Statut : fait (15 août 2026)**
+- [x] App `admin.kebrane.com` ; **2FA staff obligatoire** (Clerk).
+- [x] Afficher les 7 chiffres : inscrits · abonnements actifs · revenus · paiements échoués · dernière connexion · progression générale · journal d'erreurs. Pas de sur-outillage.
+**Acceptation** : [x] les 7 indicateurs s'affichent ; [x] accès staff protégé par 2FA.
+**Fichiers** : `apps/admin/*`, `packages/core/src/reporting.ts`, `packages/auth/src/server.ts`.
+
+**La 2FA est vérifiée CÔTÉ SERVEUR, à chaque requête.** `checkStaff()` interroge l'API Clerk
+(`twoFactorEnabled`) plutôt que de lire une revendication du jeton : un contrôle d'accès qui
+croit ce que le client affirme n'est pas un contrôle d'accès. Coût = un appel API par page
+d'administration, négligeable pour ce volume.
+
+**Clerk injoignable ⇒ accès REFUSÉ.** C'est l'inverse de la règle du pont GermanPass, où
+Core en panne laisse passer — et c'est voulu : là il s'agissait de ne pas bloquer des membres
+payants, ici de ne pas ouvrir une console d'administration. L'indisponibilité d'un contrôle
+ne vaut pas autorisation.
+
+**L'écran de refus DIT ce qui manque** (rôle ? 2FA ?) avec la commande à lancer, au lieu d'un
+403 opaque. Quelqu'un qui a le bon rôle mais pas la 2FA doit comprendre qu'il lui reste une
+action — sinon il conclut à une panne et appelle. Ces messages ne s'affichent qu'à un
+utilisateur déjà authentifié : rien n'est divulgué.
+
+**Cinq indicateurs viennent de Core, deux des produits — et c'est structurel.** La
+progression pédagogique est une notion **métier** : Core ne saurait pas la calculer sans
+apprendre le domaine de GermanPass, ce qui casserait précisément la frontière v0.2. D'où
+`ProductMetric` (clé, valeur, date) : le produit **calcule et publie**, la plateforme
+**conserve et affiche**. Générique à dessein — sans lui, chaque nouvel indicateur produit
+demanderait une migration.
+- `pnpm --filter @kebrane/germanpass kebrane:metrics` (à passer en cron quotidien).
+- La progression rapporte les leçons terminées aux leçons **engagées**, pas au catalogue :
+  sinon enrichir le catalogue ferait chuter l'indicateur sans que personne n'ait régressé.
+
+**Une moyenne sans échantillon n'est pas zéro.** Défaut constaté sur la première exécution
+réelle : le score moyen était publié à `0` faute de données, ce qui se lit « tout le monde a
+eu zéro ». Le script **omet** désormais une mesure sans échantillon — et surtout la
+**rétracte** (`reporting.retractMetric`), car `publishMetric` étant un upsert, un indicateur
+devenu indisponible garderait sinon sa dernière valeur à l'écran indéfiniment. Un chiffre
+périmé trompe plus qu'un chiffre absent.
+
+**Journal d'erreurs : un seul crochet.** `apps/germanpass/src/instrumentation.ts` implémente
+`onRequestError`, le point central de Next qui voit toutes les erreurs serveur — routes,
+actions, rendu. Un crochet unique se maintient ; des appels dispersés dans les `catch`
+s'oublient. Les erreurs arrivent en gravité `ACTION_REQUIRED` et alimentent donc le compteur
+d'alertes existant, sans mécanisme parallèle.
+⚠ **Ni message complet ni pile ne sont transmis** — seulement type, route et méthode. Le
+journal est lu largement, et une trace contient volontiers des jetons ou des données
+personnelles. Le détail reste dans les logs serveur, dont l'accès est plus étroit.
+
+**Reste à faire** : DNS `admin.kebrane.com` et déploiement (KB-21) ; brancher
+`kebrane:metrics` sur un cron ; et le premier membre du personnel devra **activer sa 2FA**
+avant de pouvoir entrer — sans quoi la console lui restera fermée, y compris à un ADMIN.
 
 ---
 
@@ -833,6 +878,7 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 
 ## Statut synthétique (2 août 2026)
 - **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée], KB-20, KB-12 [socle ; composants à poursuivre]**.
+- **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-15** (console d'administration + 2FA).
 - **Prochains** : (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
 - **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).

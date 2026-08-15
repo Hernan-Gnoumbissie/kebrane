@@ -20,6 +20,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "kebrane:backfill": "tsx scripts/kebrane-backfill.ts",
     "ai:cost": "tsx scripts/ai-cost-report.ts",
+    "kebrane:metrics": "tsx scripts/publish-metrics.ts",
     "db:studio": "prisma studio",
     "worker": "tsx src/worker/index.ts",
     "postinstall": "prisma generate"

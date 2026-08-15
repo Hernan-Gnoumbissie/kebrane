@@ -38,6 +38,10 @@ model Account {
   email       String   @unique
   name        String
   role        Role     @default(MEMBER)
+  /// Dernier passage constaté (KB-15). Distinct d'`updatedAt`, que n'importe
+  /// quelle écriture technique modifie : ici on veut « quand cette personne
+  /// s'est-elle servie de la plateforme », pas « quand la ligne a-t-elle bougé ».
+  lastSeenAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -70,6 +74,7 @@ model Product {
   accesses ProductAccess[]
   payments Payment[]
   plans    Plan[]
+  metrics  ProductMetric[]
 
   @@map("products")
 }
@@ -270,4 +275,32 @@ enum PaymentStatus {
   CONFIRMED
   FAILED
   REFUNDED
+}
+
+/// Indicateur publié par un produit vers la plateforme (KB-15).
+///
+/// Générique À DESSEIN — une clé, une valeur, une date. Certaines données de
+/// pilotage (progression pédagogique, taux de réussite…) vivent chez le produit
+/// et n'ont rien à faire dans le domaine transversal : Core ne saurait pas les
+/// calculer sans connaître le métier, ce qui casserait la frontière v0.2.
+/// Le produit les CALCULE et les PUBLIE ; Core ne fait que les conserver.
+///
+/// Sans ce modèle, chaque nouvel indicateur produit demanderait une migration.
+model ProductMetric {
+  id         String   @id @default(cuid())
+  productId  String
+  /// Clé stable, préfixée par domaine : "progression.moyenne", "exam.reussite"…
+  key        String
+  value      Float
+  /// Libellé et unité pour l'affichage — le produit sait ce que sa mesure veut
+  /// dire, la console d'administration ne le devine pas.
+  label      String?
+  unit       String?
+  capturedAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, key])
+  @@index([capturedAt])
+  @@map("product_metrics")
 }

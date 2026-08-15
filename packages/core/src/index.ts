@@ -22,6 +22,12 @@ export {
 export { plans, PLAN_REGISTRY, type PlanDefinition, type Plan } from "./plans";
 // Droits effectifs + enveloppe IA (KB-13).
 export { entitlements, type Entitlement } from "./entitlements";
+// Indicateurs de pilotage (KB-15).
+export {
+  reporting,
+  type PlatformStats,
+  type AlerteRecente,
+} from "./reporting";
 // Module `billing` (KB-13) — encaissement agnostique du fournisseur.
 export {
   billing,
@@ -64,6 +70,19 @@ export const accounts = {
 
   findByEmail(email: string): Promise<Account | null> {
     return db.account.findUnique({ where: { email: email.toLowerCase() } });
+  },
+
+  /**
+   * Note le passage d'un compte (KB-15). Silencieux et non bloquant : c'est un
+   * indicateur, il ne doit jamais faire échouer une requête de l'utilisateur.
+   * Volontairement NON journalisé — une ligne par page vue noierait le journal.
+   */
+  async touchLastSeen(accountId: string): Promise<void> {
+    try {
+      await db.account.update({ where: { id: accountId }, data: { lastSeenAt: new Date() } });
+    } catch {
+      /* un indicateur manqué ne casse pas une session */
+    }
   },
 
   /** Résout (ou crée) le compte Kebrane d'un utilisateur Clerk. Idempotent. */
