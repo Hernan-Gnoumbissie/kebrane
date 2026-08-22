@@ -58,18 +58,28 @@ jobs:
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
       CLERK_SECRET_KEY: sk_test_ci_dummy_key_not_for_production
       NEXT_TELEMETRY_DISABLED: "1"
+      # Corepack demande confirmation avant de télécharger un gestionnaire de
+      # paquets. En CI il n'y a personne pour répondre : sans ça, le job peut
+      # rester suspendu jusqu'au délai d'expiration.
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
-        with:
-          # Version lue dans le champ `packageManager` de package.json.
-          run_install: false
+      # Corepack REMPLACE `pnpm/action-setup` : il est livré avec Node et lit la
+      # version dans le champ `packageManager` de package.json. Une dépendance
+      # tierce de moins à suivre, et une source de dépréciation en moins.
+      # Doit précéder `setup-node`, dont le cache `pnpm` exige que le binaire
+      # existe déjà.
+      - name: Activer corepack (fournit pnpm)
+        run: corepack enable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          # Aligné sur la version de DÉVELOPPEMENT (Node 24 LTS), pas sur une
+          # version antérieure. Trois pannes de CI de suite venaient d'un écart
+          # entre le poste et le runner ; en supprimer un de plus est gratuit.
+          node-version: 24
           cache: pnpm
 
       - name: Installer les dépendances
