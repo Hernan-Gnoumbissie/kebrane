@@ -658,9 +658,14 @@ et renseigner `CLERK_WEBHOOK_SIGNING_SECRET` dans `apps/kebrane`. ⚠ C'est un a
 **Acceptation** : [~] CI verte sur PR (voir réserve ci-dessous) ; [x] Core couvert ; [x] génération Prisma reproductible en CI et au déploiement.
 **Fichiers** : `.github/workflows/*`, `turbo.json`, `packages/core/tests/*`, `.gitattributes`.
 
-**✅ CI PROUVÉE VERTE (16 août 2026)** — dépôt poussé sur
-`github.com/Hernan-Gnoumbissie/kebrane` (privé), exécution verte sur `e5c4f96`. La réserve
-« CI non prouvée » qui accompagnait ce ticket depuis sa création est levée.
+**✅ CI PROUVÉE VERTE — sur `f45716c` (17 août 2026)**, dépôt privé
+`github.com/Hernan-Gnoumbissie/kebrane`. La réserve « CI non prouvée » qui accompagnait ce
+ticket depuis sa création est levée.
+
+⚠ *Correction de ce document* : une version antérieure annonçait le vert sur `e5c4f96`.
+C'était faux — les exécutions suivantes étaient rouges, et la cause réelle (mode strict de
+Turborepo, voir plus bas) n'était pas encore trouvée. Il a fallu **quatre** échecs pour y
+arriver.
 
 **Ce que la CI a validé du premier coup**, et qui avait été écrit à l'aveugle : les **deux
 clients Prisma** se génèrent dans l'ordre (le risque principal du monorepo), les **trois**
