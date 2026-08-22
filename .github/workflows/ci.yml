@@ -124,6 +124,17 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # ET dans l'encadré « Annotations » de la page d'exécution, qui est
+          # visible sans rien déplier ni faire défiler. Les journaux replies de
+          # GitHub sont difficiles a atteindre ; l'annotation, non.
+          # `|| true` indispensable : GitHub lance les `run:` avec `set -e`, et un
+          # grep sans correspondance renverrait 1 — l'étape mourrait AVANT
+          # d'écrire l'annotation, c'est-à-dire précisément quand on en a besoin.
+          detail=$(grep -E "not ok|AssertionError|Error:|error TS|✖|failed" /tmp/turbo.log 2>/dev/null | tail -20 || true)
+          if [ -z "$detail" ]; then detail=$(tail -20 /tmp/turbo.log 2>/dev/null || true); fi
+          detail="${detail//$'\n'/%0A}"
+          echo "::error title=Cause de l'echec::${detail:-aucun journal capture}"
+
       # Le smoke démarre le serveur de production du hub : il exige le build,
       # que turbo a déjà produit (`dependsOn: ["build"]`).
       - name: Smoke du hub
