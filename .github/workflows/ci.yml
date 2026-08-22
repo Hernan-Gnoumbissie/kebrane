@@ -105,7 +105,24 @@ jobs:
       # part en timeout au bout de plusieurs minutes sans le moindre indice.
       # Constaté en local le 2 août 2026 avant que la CI n'existe.
       - name: Typecheck, lint, build, tests
-        run: pnpm turbo typecheck lint build test --ui=stream
+        run: |
+          set -o pipefail
+          pnpm turbo typecheck lint build test --ui=stream 2>&1 | tee /tmp/turbo.log
+
+      # Sans ça, la cause d'un échec reste enfouie dans des groupes de journaux
+      # repliés, qu'il faut savoir déplier un par un. Ici elle s'affiche en
+      # PREMIÈRE PAGE de l'exécution, lisible d'un coup d'œil.
+      - name: Résumé de l'échec
+        if: failure()
+        run: |
+          {
+            echo "## ❌ Échec de la CI"
+            echo ""
+            echo "Dernières lignes de \`turbo\` :"
+            echo '```'
+            tail -150 /tmp/turbo.log 2>/dev/null || echo "(aucun journal capturé)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Le smoke démarre le serveur de production du hub : il exige le build,
       # que turbo a déjà produit (`dependsOn: ["build"]`).

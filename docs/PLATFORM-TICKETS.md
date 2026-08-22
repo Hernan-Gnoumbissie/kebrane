@@ -897,9 +897,10 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 
 ---
 
-## Statut synthétique (2 août 2026)
+## Statut synthétique (16 août 2026)
 - **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18, KB-20, KB-12 [socle ; composants à poursuivre]**.
 - **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-15** (console d'administration + 2FA).
-- **Prochains** : (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
+- **Prochains** : KB-14 (événements & notifications) · KB-21 (mise en production) · KB-16 (site public, prévu en dernier) · KB-04 (nettoyage Vercel) · KB-12 [suite] (adoption des composants `@kebrane/ui`, écran par écran, sans urgence).
+- **Bloqués côté PO, pas côté code** : 3 vérifications KPay → adaptateur PSP (KB-13) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · hébergeur PostgreSQL de production (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13).
 - **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
