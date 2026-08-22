@@ -609,7 +609,33 @@ avant de pouvoir entrer — sans quoi la console lui restera fermée, y compris 
 ## Phase 8 — Site public `kebrane.com` (EN DERNIER)
 
 ### KB-16 · Landing marque Kebrane + catalogue produits
-**P2 · L · dépend de : KB-02 (idéalement après un MVP produit concret)**
+**P2 · L · dépend de : KB-02 (idéalement après un MVP produit concret)** — **Statut : fait (17 août 2026)**
+
+**Ce qui manquait vraiment n'était pas le hero** — il existait depuis KB-07, et KB-19 lui a
+donné le catalogue lu depuis Core. C'était que le hub n'avait **aucun dossier `public/`** :
+ni favicon, ni image de partage. Un lien posté sur WhatsApp ou LinkedIn s'affichait nu —
+coûteux pour un produit qui compte sur le bouche-à-oreille.
+
+**L'image de partage est GÉNÉRÉE, pas stockée** (`opengraph-image.tsx`). Un fichier binaire
+se périme en silence : on change la promesse de la marque, et l'image annonce l'ancienne
+pendant des mois. Ici le texte vit dans le code, donc il suit. Composition fidèle à la
+charte — aplat Marine, wordmark interlettré, Rouge réduit à un filet (règle 60/25/10/5).
+
+**`metadataBase` est indispensable** : sans lui, Next émet les URL d'images sociales en
+**relatif**, et aucune plateforme de partage ne sait les résoudre. Piège classique de
+l'OpenGraph, invisible tant qu'on ne partage pas.
+
+**`robots.ts` ferme `/hub`, `/login`, `/register`, `/api/`** ; le sitemap ne liste que la
+vitrine. Indexer une zone connectée ne produirait que des résultats frustrants.
+
+**Accessibilité** : le balisage était déjà correct. Ajouté — un **lien d'évitement** (sans
+lui, la navigation au clavier traverse tout l'en-tête à chaque page), une cible de focus
+visible aux couleurs de la charte, et `prefers-reduced-motion`, qui couvre aussi les
+animations non déclarées en classes utilitaires.
+
+**Vérifié** : 14/14 tâches, 168 tests ; les quatre routes apparaissent au build
+(`/icon.svg`, `/opengraph-image`, `/robots.txt`, `/sitemap.xml`), toutes en statique.
+⚠ **Lighthouse n'a pas été mesuré** — cela demande un déploiement réel.
 - Dans `apps/kebrane` (route publique) ou `apps/kebrane-web` : hero marque (charte), **catalogue produits** (GermanPass 1er, autres « bientôt »), promesse « un compte, tous les produits », CTA.
 - Inspiration réfs (`apps/germanpass/docs/UX-TICKETS.md`, ex. Geek Institut : hero photo + voile + titre display + CTA pill + nav glassy) — **en se différenciant** (montrer la profondeur produit).
 - SEO/OpenGraph/sitemap, perf (`next/image`), a11y, `prefers-reduced-motion`.
@@ -978,10 +1004,10 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 
 ---
 
-## Statut synthétique (16 août 2026)
+## Statut synthétique (17 août 2026)
 - **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18, KB-20, KB-12 [socle ; composants à poursuivre]**.
-- **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-15** (console d'administration + 2FA).
-- **Prochains** : KB-14 (événements & notifications) · KB-21 (mise en production) · KB-16 (site public, prévu en dernier) · KB-04 (nettoyage Vercel) · KB-12 [suite] (adoption des composants `@kebrane/ui`, écran par écran, sans urgence).
+- **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-14** (catalogue d'événements + notifications) · **KB-15** (console d'administration + 2FA) · **KB-16** (vitrine publique) · **KB-21** (préparation production).
+- **Prochains** : KB-04 (nettoyage Vercel — demande un accès à ton compte) · KB-12 [suite] (adoption des composants `@kebrane/ui`, écran par écran, sans urgence).
 - **Bloqués côté PO, pas côté code** : 3 vérifications KPay → adaptateur PSP (KB-13) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · hébergeur PostgreSQL de production (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13).
 - **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
