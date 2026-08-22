@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { env } from "@/lib/env";
 import { redirect } from "next/navigation";
 
 export const metadata = { title: "Paramètres — GermanPass Admin" };
@@ -44,11 +45,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default async function AdminSettingsPage() {
   const { userCount, passageCount, lessonCount, docCount } = await getSettings();
 
-  const aiModel   = process.env.AI_MODEL         ?? "Non configuré";
-  const budget    = process.env.AI_MONTHLY_BUDGET_USER_USD ?? "Non configuré";
-  const appUrl    = process.env.NEXTAUTH_URL      ?? "Non configuré";
-  const storageDir = process.env.STORAGE_DIR      ?? "Non configuré";
-  const nodeEnv   = process.env.NODE_ENV          ?? "—";
+  // ⚠ Ces lignes lisaient `AI_MODEL` et `NEXTAUTH_URL` (KB-21) — deux variables
+  // qui n'existent NULLE PART : le schéma déclare `AI_MODEL_EVALUATION` /
+  // `AI_MODEL_GENERATION`, et `NEXTAUTH_URL` est un vestige d'avant Clerk. Une
+  // page de diagnostic qui affiche « Non configuré » à jamais est pire
+  // qu'absente : elle fait chercher un problème qui n'existe pas.
+  const modeleEvaluation = env.AI_MODEL_EVALUATION;
+  const modeleGeneration = env.AI_MODEL_GENERATION;
+  const budget    = String(env.AI_MONTHLY_BUDGET_USER_USD);
+  const appUrl    = env.APP_URL;
+  const storageDir = env.STORAGE_DIR;
+  const nodeEnv   = env.NODE_ENV;
 
   return (
     <main className="space-y-6 max-w-2xl">
@@ -62,12 +69,15 @@ export default async function AdminSettingsPage() {
       </Section>
 
       <Section title="🤖 Configuration IA">
-        <Row label="Modèle principal" value={aiModel} />
-        <Row label="Budget mensuel par utilisateur (USD)" value={`$${budget}`} />
+        <Row label="Modèle d'évaluation (corrections)" value={modeleEvaluation} />
+        <Row label="Modèle de génération" value={modeleGeneration} />
+        <Row label="Plafond mensuel par utilisateur (USD)" value={`$${budget}`} />
         <p className="mt-2 text-xs text-muted-foreground">
-          Pour modifier ces valeurs, mettez à jour les variables d&apos;environnement{" "}
-          <code className="rounded bg-muted px-1">AI_MODEL</code> et{" "}
-          <code className="rounded bg-muted px-1">AI_MONTHLY_BUDGET_USER_USD</code> dans votre fichier <code className="rounded bg-muted px-1">.env</code>.
+          Variables : <code className="rounded bg-muted px-1">AI_MODEL_EVALUATION</code>,{" "}
+          <code className="rounded bg-muted px-1">AI_MODEL_GENERATION</code>,{" "}
+          <code className="rounded bg-muted px-1">AI_MONTHLY_BUDGET_USER_USD</code>. Ce plafond
+          est le filet anti-catastrophe hérité ; l&apos;enveloppe commerciale est celle de
+          l&apos;offre achetée (KB-13).
         </p>
       </Section>
 

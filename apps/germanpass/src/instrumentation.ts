@@ -9,6 +9,16 @@
  * jamais la pile : il est lu largement, et une trace contient volontiers des
  * jetons ou des données personnelles. Le détail reste dans les logs serveur.
  */
+/**
+ * Amorçage (KB-21) — appelé UNE FOIS au démarrage du serveur. Branche le canal
+ * de notification réel si l'environnement le permet.
+ */
+export async function register(): Promise<void> {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { bootstrapKebrane } = await import("@kebrane/core");
+  await bootstrapKebrane();
+}
+
 export async function onRequestError(
   error: unknown,
   request: { path?: string; method?: string }

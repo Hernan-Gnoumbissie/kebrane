@@ -41,6 +41,8 @@ export {
   type NotificationChannel,
   type NotificationMessage,
 } from "./notifications";
+// Amorçage des services optionnels (KB-21).
+export { bootstrapKebrane } from "./bootstrap";
 // Indicateurs de pilotage (KB-15).
 export {
   reporting,
