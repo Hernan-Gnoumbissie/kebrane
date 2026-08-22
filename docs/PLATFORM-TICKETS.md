@@ -707,10 +707,21 @@ d'un échec à la fois en première page (`$GITHUB_STEP_SUMMARY`) et dans l'enca
 **Annotations** (`::error::`). C'est cette annotation qui a livré le fait décisif — *six*
 fichiers en échec, pas un — et donc la bonne hypothèse.
 
-**Reste un avertissement, volontairement non traité** : `actions/checkout@v4`,
-`actions/setup-node@v4` et `pnpm/action-setup@v4` reposent sur Node 20, déprécié par GitHub.
-Rien ne casse aujourd'hui. À moderniser **maintenant qu'un vert existe** — le faire pendant
-la stabilisation aurait mélangé les causes.
+**Modernisation des actions : TENTÉE puis ANNULÉE (17 août 2026).** `actions/checkout@v4`,
+`actions/setup-node@v4` et `pnpm/action-setup@v4` reposent sur Node 20, déprécié par GitHub —
+un avertissement, rien de cassé. La tentative (`9b383f3`) a fait échouer la CI et a été
+annulée (`bcea863`) : sacrifier un vert obtenu au prix de quatre échecs pour faire taire un
+avertissement est un mauvais échange.
+
+*Erreur de méthode assumée* : quatre changements empilés dans un seul commit — deux versions
+d'actions, `pnpm/action-setup` remplacé par corepack, et Node 20 → 24. Un échec ne désignait
+donc aucun coupable. **Suspect principal** : corepack combiné à `cache: pnpm` de `setup-node`,
+dont l'ordre est délicat — le cache cherche le binaire `pnpm` avant que corepack ne l'ait
+matérialisé.
+
+**À reprendre un changement par commit**, par risque croissant : (1) `checkout@v5`,
+(2) `setup-node@v5`, (3) Node 20 → 24, (4) corepack. Chaque étape se valide seule ; celle qui
+casse se dénonce.
 
 **La CI de GermanPass était morte.** `apps/germanpass/.github/workflows/{ci,cd}.yml` existe
 mais **GitHub ne lit `.github/` qu'à la racine du dépôt** : depuis le passage en monorepo,
