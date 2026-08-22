@@ -643,7 +643,7 @@ et renseigner `CLERK_WEBHOOK_SIGNING_SECRET` dans `apps/kebrane`. ⚠ C'est un a
 **distinct** de celui de GermanPass : deux endpoints, deux secrets. À intégrer à KB-21.
 
 ### KB-18 · Tests & CI du monorepo
-**P2 · L · dépend de : KB-06** — **Statut : fait côté code (2 août 2026) ; CI non prouvée (aucun remote git)**
+**P2 · L · dépend de : KB-06** — **Statut : fait et PROUVÉ (CI verte le 16 août 2026)**
 `@kebrane/core`, `@kebrane/auth` et `apps/kebrane` n'ont **aucun test** ; il n'y a **pas de CI**. Or la génération des **deux** clients Prisma (`@prisma/client` GermanPass + `@kebrane/prisma-client` Core) est sensible à l'ordre.
 - Tests unitaires `@kebrane/core` : `accounts.getOrCreateForClerk` (idempotence + liaison par email), `access.sync` (idempotence + événement émis), `products.syncRegistry`.
 - Smoke `apps/kebrane` : landing 200 ; `/hub` non connecté → 307.
@@ -658,12 +658,33 @@ et renseigner `CLERK_WEBHOOK_SIGNING_SECRET` dans `apps/kebrane`. ⚠ C'est un a
 **Acceptation** : [~] CI verte sur PR (voir réserve ci-dessous) ; [x] Core couvert ; [x] génération Prisma reproductible en CI et au déploiement.
 **Fichiers** : `.github/workflows/*`, `turbo.json`, `packages/core/tests/*`, `.gitattributes`.
 
-**⚠ Réserve honnête : la CI n'a pas pu être prouvée.** Le dépôt n'a **aucun remote git**,
-donc aucun workflow ne peut s'exécuter depuis ce poste. Ce qui est vérifié : le YAML parse,
-et sa structure est cohérente (14 assertions — service `pgvector`, deux bases distinctes,
-clients Prisma générés dans l'ordre et **avant** toute compilation, migrations avant les
-tests, smoke après le build). Ce qui ne l'est pas : qu'un runner GitHub la passe au vert.
-**Le premier `git push` sera la vraie recette** — prévoir un aller-retour de correction.
+**✅ CI PROUVÉE VERTE (16 août 2026)** — dépôt poussé sur
+`github.com/Hernan-Gnoumbissie/kebrane` (privé), exécution verte sur `e5c4f96`. La réserve
+« CI non prouvée » qui accompagnait ce ticket depuis sa création est levée.
+
+**Ce que la CI a validé du premier coup**, et qui avait été écrit à l'aveugle : les **deux
+clients Prisma** se génèrent dans l'ordre (le risque principal du monorepo), les **trois**
+apps sont vues, le service Postgres démarre, les migrations passent, et `--ui=stream` évite
+le figement du TUI.
+
+**Les deux bugs qu'elle a trouvés étaient de la même famille** — une dépendance implicite à
+l'environnement local, invisible depuis ce poste :
+1. *Motif de tests développé par le shell.* `tests/unit/**/*.test.ts` : sur le runner Ubuntu,
+   `pnpm` passe par `sh` (dash) où `**` équivaut à `*` — le motif exigeait donc un
+   sous-répertoire inexistant. Mesuré sous `sh` : `**` → 0 fichier, `*` → 7.
+2. *Test dépendant d'une base déjà semée.* `plans.syncRegistry()` était appelé sans avoir
+   enregistré les produits ; `plans.upsert()` refuse un produit inconnu. En local le seed
+   était joué, le test passait par accident.
+
+**Trois hypothèses testées puis INFIRMÉES** avant de trouver la seconde cause — parallélisme
+des fichiers de test, version de Node (20 vs 24), et une reproduction méthodologiquement
+fausse de ma part. Les 52 tests Core passent sur schéma vierge, avec `--test-concurrency=8`,
+et sous Node 20. Les corriger « au cas où » aurait ajouté deux changements inutiles.
+
+**Reste un avertissement, volontairement non traité** : `actions/checkout@v4`,
+`actions/setup-node@v4` et `pnpm/action-setup@v4` reposent sur Node 20, déprécié par GitHub.
+Rien ne casse aujourd'hui. À moderniser **maintenant qu'un vert existe** — le faire pendant
+la stabilisation aurait mélangé les causes.
 
 **La CI de GermanPass était morte.** `apps/germanpass/.github/workflows/{ci,cd}.yml` existe
 mais **GitHub ne lit `.github/` qu'à la racine du dépôt** : depuis le passage en monorepo,
@@ -877,7 +898,7 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
 ---
 
 ## Statut synthétique (2 août 2026)
-- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18 [CI non prouvée], KB-20, KB-12 [socle ; composants à poursuivre]**.
+- **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18, KB-20, KB-12 [socle ; composants à poursuivre]**.
 - **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-15** (console d'administration + 2FA).
 - **Prochains** : (UI GermanPass→@kebrane/ui), KB-13 (paiements — décision PO), KB-14/15, KB-21 (prod), KB-16 (site public), KB-04 (Vercel).
 - **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
