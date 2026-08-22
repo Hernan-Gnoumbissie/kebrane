@@ -211,6 +211,12 @@ describe("entitlements", () => {
     });
 
     test("le registre déclaratif est cohérent et rejouable", async () => {
+      // Le registre des OFFRES suppose les PRODUITS enregistrés : `plans.upsert`
+      // refuse un produit inconnu. Sur une base vierge — celle de la CI — cette
+      // dépendance implicite faisait échouer le test, alors qu'il passait en
+      // local grâce au seed déjà joué. Un test doit se suffire à lui-même.
+      await products.syncRegistry();
+
       const first = await plans.syncRegistry();
       const second = await plans.syncRegistry();
 
