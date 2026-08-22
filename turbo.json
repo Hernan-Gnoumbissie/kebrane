@@ -1,6 +1,49 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+
+  // Turborepo 2 filtre l'environnement par DÉFAUT (mode strict) : une tâche ne
+  // reçoit que les variables déclarées ici. Non déclarées, elles disparaissent
+  // — même exportées dans le shell appelant.
+  //
+  // C'est la cause des échecs de CI des 16 et 17 août : `KEBRANE_DATABASE_URL`
+  // n'arrivait pas jusqu'aux tests, et les SIX fichiers de `@kebrane/core`
+  // mouraient sur le même garde-fou. En local, rien n'y paraissait : le script
+  // de test lit `packages/db/.env` via `--env-file-if-exists`, et ce fichier
+  // existe sur un poste de développement. Il est absent en CI (ignoré par git),
+  // et le filtrage devenait visible.
+  //
+  // `globalPassThroughEnv` plutôt que `globalEnv` : ces variables transitent
+  // sans entrer dans la clé de cache. Un secret ou une URL de base ne change
+  // pas le résultat d'une compilation, et les faire varier invaliderait le
+  // cache à chaque environnement.
+  "globalPassThroughEnv": [
+    "CI",
+    "NEXT_TELEMETRY_DISABLED",
+    "KEBRANE_DATABASE_URL",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "AUTH_SECRET",
+    "STORAGE_DIR",
+    "KEBRANE_ACCESS_ENFORCE",
+    "KEBRANE_AI_BUDGET_ENFORCE",
+    "KEBRANE_BOOTSTRAP_ADMIN_EMAIL",
+    "CLERK_SECRET_KEY",
+    "CLERK_WEBHOOK_SIGNING_SECRET",
+    "CLERK_FRONTEND_API_ORIGIN",
+    "NEXT_PUBLIC_CLERK_*",
+    "NEXT_PUBLIC_KEBRANE_*",
+    "NEXT_PUBLIC_GERMANPASS_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "GERMANPASS_URL",
+    "AI_*",
+    "VISION_MODEL",
+    "TTS_MODEL",
+    "STT_MODEL",
+    "SMTP_*",
+    "PAYMENT_*",
+    "SMOKE_PORT"
+  ],
   "tasks": {
     "db:generate": {
       "cache": false,

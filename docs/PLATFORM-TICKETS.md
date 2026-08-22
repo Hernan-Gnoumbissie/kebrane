@@ -681,6 +681,27 @@ des fichiers de test, version de Node (20 vs 24), et une reproduction méthodolo
 fausse de ma part. Les 52 tests Core passent sur schéma vierge, avec `--test-concurrency=8`,
 et sous Node 20. Les corriger « au cas où » aurait ajouté deux changements inutiles.
 
+**3. Le mode strict de Turborepo — la vraie cause des échecs suivants.**
+Turborepo 2 **filtre l'environnement par défaut** : une tâche ne reçoit que les variables
+**déclarées** dans `turbo.json`. Non déclarée, `KEBRANE_DATABASE_URL` n'arrivait pas jusqu'aux
+tests, et les **six** fichiers de `@kebrane/core` mouraient sur le même garde-fou de
+`helpers.ts` — d'où six `not ok` identiques, et non une assertion isolée.
+
+*Pourquoi c'était invisible en local* : le script de test lit `packages/db/.env` via
+`--env-file-if-exists`, et ce fichier existe sur un poste de développement. Il est absent en
+CI (ignoré par git). Le filtrage n'y devenait visible que là.
+
+*Prouvé* : en masquant `packages/db/.env` et en exportant la variable dans le shell,
+`turbo test` reproduit **exactement** les six messages de la CI ; après déclaration dans
+`globalPassThroughEnv`, la même commande passe au vert.
+
+**Ce que cet épisode a coûté, et ce qu'il a appris.** Trois échecs corrigés à l'aveugle
+parce que le message d'erreur restait enfoui dans des groupes de journaux repliés. Le
+problème n'était pas le code mais l'**observabilité** : le workflow écrit désormais la cause
+d'un échec à la fois en première page (`$GITHUB_STEP_SUMMARY`) et dans l'encadré
+**Annotations** (`::error::`). C'est cette annotation qui a livré le fait décisif — *six*
+fichiers en échec, pas un — et donc la bonne hypothèse.
+
 **Reste un avertissement, volontairement non traité** : `actions/checkout@v4`,
 `actions/setup-node@v4` et `pnpm/action-setup@v4` reposent sur Node 20, déprécié par GitHub.
 Rien ne casse aujourd'hui. À moderniser **maintenant qu'un vert existe** — le faire pendant
