@@ -9,4 +9,25 @@
   h1, h2, h3 {
     @apply font-serif;
   }
+
+  /* Respect de la préférence système de réduction des animations (KB-16).
+     Complète les utilitaires `motion-reduce:` de Tailwind, qui ne couvrent que
+     ce qui est déclaré en classes — pas les animations venant d'ailleurs. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Cible de focus visible et sobre — le Ciel de la charte, pas un halo criard.
+     Sans ça, la navigation au clavier se fait à l'aveugle. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }

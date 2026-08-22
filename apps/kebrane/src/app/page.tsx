@@ -94,7 +94,7 @@ export default async function Home() {
         </nav>
       </header>
 
-      <main className="flex-1">
+      <main id="contenu" className="flex-1">
         <section className="py-16 md:py-24">
           <p className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
             <span className="inline-block h-px w-8 bg-accent" aria-hidden="true" />
@@ -117,8 +117,11 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="produits" className="pb-20">
-          <h2 className="mb-6 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        <section id="produits" aria-labelledby="titre-produits" className="pb-20">
+          <h2
+            id="titre-produits"
+            className="mb-6 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground"
+          >
             Les produits
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
