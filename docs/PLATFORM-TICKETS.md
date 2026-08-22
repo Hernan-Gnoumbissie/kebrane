@@ -499,10 +499,54 @@ admin valide », exact tant que le filet de lancement est en service.
 ## Phase 6 — Événements & notifications
 
 ### KB-14 · Catalogue d'événements 3 gravités + notifications
-**P2 · M · dépend de : KB-06**
-- Catalogue d'événements (info / important / action immédiate), routage (notif / e-mail / ticket) ; e-mails transactionnels essentiels.
-**Acceptation** : événements clés émis et routés ; e-mails partent.
-**Fichiers** : `packages/core/*` (events/notifications).
+**P2 · M · dépend de : KB-06** — **Statut : fait (17 août 2026)**
+- [x] Catalogue d'événements (info / important / action immédiate), routage (notif / e-mail / ticket) ; e-mails transactionnels essentiels.
+**Acceptation** : [x] événements clés émis et routés ; [x] e-mails partent (canal SMTP branché, canal console par défaut).
+**Fichiers** : `packages/core/src/events-catalog.ts`, `notifications.ts`, `notifications-smtp.ts`.
+
+**Le manque réel n'était pas « il faut des notifications ».** Onze types d'événements
+étaient déjà émis, mais chaque appelant choisissait **librement** son type et sa gravité.
+Rien ne garantissait qu'un même événement soit journalisé pareil partout, et personne ne
+pouvait répondre à « quels événements existent ? » sans relire tout le code.
+
+**La gravité appartient au TYPE, pas au lieu d'appel.** `EVENT_CATALOG` la fixe, et
+`events.log()` la lit — l'appelant n'a plus à la décider. Un appelant peut toutefois
+l'**affiner** quand le contexte la change réellement (une ouverture d'accès est plus notable
+qu'une fermeture) : exception assumée, pas règle.
+
+**L'invariant qui donne sa valeur au catalogue** : un test lit le code source de `packages/`
+et `apps/` et vérifie que **tout type émis y figure**. Sans lui, le catalogue se périmerait
+silencieusement dès la fonctionnalité suivante — et un événement hors catalogue ne serait ni
+routé, ni documenté, ni visible.
+
+**Routage — trois décisions qui engagent :**
+1. *`app.error` ne notifie personne.* Ni le membre (ce n'est pas son affaire), ni le
+   personnel par e-mail : une panne en cascade produirait des milliers de messages et
+   masquerait le signal. La console d'administration les compte (KB-15), c'est le bon endroit.
+2. *`account.role_changed` prévient le PERSONNEL, pas l'intéressé.* Une élévation de
+   privilège doit être vue par quelqu'un d'autre que son bénéficiaire.
+3. *`account.clerk_linked` prévient le membre* — c'est un changement de sécurité : qui n'en
+   est pas l'auteur doit pouvoir s'en alarmer.
+
+**Une notification ne casse jamais l'opération qui l'a déclenchée.** Le routage a lieu
+**après** l'écriture au journal, sans bloquer le retour, et n'échoue jamais vers l'appelant.
+Un SMTP indisponible ne doit pas annuler un paiement confirmé — un test le vérifie
+explicitement avec un canal qui lève.
+
+**Canal par défaut = console**, à dessein : un environnement non configuré doit fonctionner,
+et en développement comme en CI on veut *voir* qu'une notification serait partie sans
+écrire à de vraies personnes depuis une base de test. Le canal SMTP
+(`@kebrane/core/notifications-smtp`) vit dans un module **séparé** pour que ni les tests ni
+la CI ne chargent `nodemailer`, et rend `null` si `SMTP_HOST` est absent.
+
+**Vérifié** : `typecheck` vert ; **62 tests `@kebrane/core`** (52 + 10), dont l'exhaustivité
+du catalogue, la gravité issue du catalogue, l'affinage contextuel, le silence de
+`app.error`, le routage vers le personnel et non l'intéressé, et la résistance à un canal en
+panne.
+
+**Reste à faire** : brancher `smtpChannel()` au démarrage des apps (une ligne, à faire avec
+KB-21 quand les variables SMTP de production existeront) ; le routage « ticket de support »
+attendra que le support existe.
 
 ---
 

@@ -56,10 +56,10 @@ importers:
         version: 10.5.4(postcss@8.5.25)
       eslint:
         specifier: ^9.18.0
-        version: 9.39.5(jiti@2.7.0)
+        version: 9.39.5(jiti@1.21.7)
       eslint-config-next:
         specifier: ^15.3.0
-        version: 15.5.22(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+        version: 15.5.22(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       postcss:
         specifier: ^8.4.49
         version: 8.5.25
@@ -244,10 +244,10 @@ importers:
         version: 10.5.4(postcss@8.5.25)
       eslint:
         specifier: ^9.18.0
-        version: 9.39.5(jiti@1.21.7)
+        version: 9.39.5(jiti@2.7.0)
       eslint-config-next:
         specifier: ^15.3.0
-        version: 15.5.22(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
+        version: 15.5.22(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       postcss:
         specifier: ^8.4.49
         version: 8.5.25
@@ -297,10 +297,16 @@ importers:
       '@kebrane/db':
         specifier: workspace:*
         version: link:../db
+      nodemailer:
+        specifier: ^8.0.11
+        version: 8.0.11
     devDependencies:
       '@kebrane/config':
         specifier: workspace:*
         version: link:../config
+      '@types/nodemailer':
+        specifier: ^6.4.17
+        version: 6.4.24
       tsx:
         specifier: ^4.19.2
         version: 4.23.1

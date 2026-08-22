@@ -4,6 +4,8 @@ import { db } from "@kebrane/db";
 import type { Account, Product, ProductAccess } from "@kebrane/db";
 import { AccessStatus, ProductStatus, Role } from "@kebrane/db";
 import { PRODUCT_REGISTRY } from "./registry";
+import { eventDefinition } from "./events-catalog";
+import { notifications } from "./notifications";
 
 export type { Account, Product, ProductAccess } from "@kebrane/db";
 export { AccessStatus, ProductStatus, Role } from "@kebrane/db";
@@ -22,6 +24,23 @@ export {
 export { plans, PLAN_REGISTRY, type PlanDefinition, type Plan } from "./plans";
 // Droits effectifs + enveloppe IA (KB-13).
 export { entitlements, type Entitlement } from "./entitlements";
+// Catalogue d'événements et notifications (KB-14).
+export {
+  EVENT_CATALOG,
+  isCatalogued,
+  eventDefinition,
+  type EventType,
+  type EventDefinition,
+  type Audience,
+} from "./events-catalog";
+export {
+  notifications,
+  consoleChannel,
+  setNotificationChannel,
+  getNotificationChannel,
+  type NotificationChannel,
+  type NotificationMessage,
+} from "./notifications";
 // Indicateurs de pilotage (KB-15).
 export {
   reporting,
@@ -312,24 +331,51 @@ export const access = {
   },
 };
 
-/** Journal d'événements à 3 gravités (catalogue v0.2). */
+/** Journal d'événements à 3 gravités, adossé au catalogue (KB-14). */
 export const events = {
-  log(input: {
+  /**
+   * Écrit un événement au journal, puis le ROUTE vers ses destinataires.
+   *
+   * La gravité vient du **catalogue** (`EVENT_CATALOG`) et non de l'appelant :
+   * c'est une propriété du TYPE d'événement, pas du lieu d'où on l'émet. Sans
+   * ça, le même événement finit journalisé en `INFO` ici et en `IMPORTANT`
+   * là-bas, et le journal devient impossible à filtrer.
+   *
+   * Un appelant peut toutefois **affiner** la gravité quand le CONTEXTE la
+   * change réellement — un accès qui s'ouvre est plus notable qu'un accès qui
+   * se ferme. C'est une exception assumée, pas la règle.
+   */
+  async log(input: {
     type: string;
     severity?: Severity;
     accountId?: string;
     productId?: string;
     data?: unknown;
   }) {
-    return db.event.create({
+    const definition = eventDefinition(input.type);
+    if (!definition && process.env.NODE_ENV !== "production") {
+      // Un type hors catalogue ne serait ni routé ni documenté : on le signale
+      // au développement plutôt que de le laisser passer en silence.
+      console.warn(`[events] type absent du catalogue : ${input.type}`);
+    }
+    const severity = input.severity ?? definition?.severity ?? "INFO";
+
+    const event = await db.event.create({
       data: {
         type: input.type,
-        severity: input.severity ?? "INFO",
+        severity,
         accountId: input.accountId,
         productId: input.productId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: input.data as any,
       },
     });
+
+    // Effet de bord, volontairement APRÈS l'écriture et sans `await` bloquant
+    // le retour : prévenir quelqu'un ne doit jamais retarder ni annuler
+    // l'opération métier qui vient d'aboutir.
+    void notifications.routeEvent({ type: input.type, severity, accountId: input.accountId });
+
+    return event;
   },
 };
