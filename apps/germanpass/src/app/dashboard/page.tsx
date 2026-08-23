@@ -1,6 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  BookOpen,
+  Check,
+  ClipboardList,
+  Clock,
+  Layers,
+  Lock,
+  MapPin,
+  Mic,
+  PenLine,
+  Puzzle,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { auth } from "@/auth";
+import { cn } from "@/lib/utils";
+import { Alert } from "@/components/ui/alert";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,62 +78,72 @@ export default async function DashboardPage({
     <main className="container space-y-5 py-6 md:py-10">
       {/* ── Bannière bienvenue trial ── */}
       {isTrial && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-          <p className="font-semibold text-base">🎉 Bienvenue sur GermanPass !</p>
-          <p className="mt-1">
+        <Alert variant="info" titre="Bienvenue sur GermanPass">
+          <p>
             Votre essai gratuit de <strong>24 heures</strong> est actif. Explorez librement toutes
             les fonctionnalités — Lesen, Hören, Schreiben, Sprechen, examens blancs et apprentissage.
           </p>
-          <Link href="/pricing" className="mt-2 inline-block underline font-medium">
-            Voir les formules d&apos;accès →
+          <Link href="/pricing" className="mt-2 inline-block font-medium underline">
+            Voir les formules d&apos;accès
           </Link>
-        </div>
+        </Alert>
       )}
 
       {/* ── Alerte expiration imminente (≤ 3 j) ── */}
       {!isTrial && isExpiring && !isExpired && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          <p className="font-semibold">⚠️ Accès expirant bientôt</p>
-          <p className="mt-1">
+        <Alert variant="warning" titre="Accès expirant bientôt">
+          <p>
             Il vous reste <strong>{daysLeft} jour{daysLeft > 1 ? "s" : ""}</strong>. Renouvelez
             dès maintenant pour ne pas interrompre votre préparation.
           </p>
-          <Link href="/pricing" className="mt-2 inline-block underline font-medium">
-            Renouveler mon accès →
+          <Link href="/pricing" className="mt-2 inline-block font-medium underline">
+            Renouveler mon accès
           </Link>
-        </div>
+        </Alert>
       )}
 
       {/* ── Accès expiré ── */}
       {isExpired && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">🔒 Votre accès a expiré</p>
-          <p className="mt-1">Renouvelez votre abonnement pour reprendre votre préparation.</p>
-          <Link href="/pricing" className="mt-2 inline-block underline font-medium">
-            Renouveler mon accès →
+        <Alert variant="error" titre="Votre accès a expiré">
+          <p>Renouvelez votre abonnement pour reprendre votre préparation.</p>
+          <Link href="/pricing" className="mt-2 inline-block font-medium underline">
+            Renouveler mon accès
           </Link>
-        </div>
+        </Alert>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Bonjour {(user.name ?? "").split(" ")[0]} 👋</h1>
+          <h1 className="text-2xl font-bold md:text-3xl">
+            Bonjour {(user.name ?? "").split(" ")[0]}
+          </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Jour <strong>{prepDay}</strong> de votre préparation
             {p.target.level ? ` vers le ${p.target.level}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          <span className={`rounded-full border px-3 py-1 ${isExpiring ? "border-amber-400 bg-amber-50 text-amber-800 font-medium" : ""}`}>
-            ⏳ {daysLeft ?? "—"} jours d&apos;accès
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1",
+              isExpiring && "border-warning/40 bg-warning/10 font-medium"
+            )}
+          >
+            <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+            {daysLeft ?? "—"} jours d&apos;accès
           </span>
           {p.target.provider || p.target.level ? (
-            <span className="rounded-full border px-3 py-1">
-              🎯 {p.target.provider ?? ""} {p.target.level ?? ""}
+            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1">
+              <Target aria-hidden="true" className="h-3.5 w-3.5" />
+              {p.target.provider ?? ""} {p.target.level ?? ""}
             </span>
           ) : (
-            <Link href="/account" className="rounded-full border px-3 py-1 underline">
-              🎯 Définir mon objectif
+            <Link
+              href="/account"
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 underline"
+            >
+              <Target aria-hidden="true" className="h-3.5 w-3.5" />
+              Définir mon objectif
             </Link>
           )}
         </div>
@@ -151,7 +177,10 @@ export default async function DashboardPage({
       {p.plan.length > 0 ? (
         <Card className="border-primary/50">
           <CardHeader>
-            <CardTitle className="text-lg">📋 Mon plan d&apos;amélioration</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ClipboardList aria-hidden="true" className="h-4 w-4 text-primary" />
+              Mon plan d&apos;amélioration
+            </CardTitle>
             <CardDescription>
               Généré à partir de vos résultats — mis à jour à chaque entraînement.
             </CardDescription>
@@ -181,7 +210,10 @@ export default async function DashboardPage({
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">📈 Évolution de mes scores</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                Évolution de mes scores
+              </CardTitle>
               <CardDescription>
                 {recentHistory.length} dernière(s) session(s) — ligne verte : seuil de réussite (60 %).
               </CardDescription>
@@ -197,7 +229,10 @@ export default async function DashboardPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">🎯 Réussite par compétence</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Target aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                Réussite par compétence
+              </CardTitle>
               <CardDescription>Sur vos dernières réponses corrigées.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -210,13 +245,34 @@ export default async function DashboardPage({
               ) : (
                 <p className="text-sm text-muted-foreground">Pas encore de réponses corrigées.</p>
               )}
-              <p className="mt-4 border-t pt-3 text-sm text-muted-foreground">
-                ✍️ {p.production.writingCount} Schreiben · 🎙 {p.production.speakingCount} Sprechen
-                {p.production.lastEstimatedLevel
-                  ? ` · dernier niveau estimé : ${p.production.lastEstimatedLevel}`
-                  : ""}
-                {hasLearn ? ` · 📚 ${p.lessonsDone} leçon(s) · 🃏 ${p.dueCards} carte(s) à réviser` : ""}
-              </p>
+              {/* Compteurs de production. Les icônes remplacent les emojis mais
+                  ne portent aucune information seules : chaque valeur reste
+                  lisible en texte. */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t pt-3 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <PenLine aria-hidden="true" className="h-3.5 w-3.5" />
+                  {p.production.writingCount} Schreiben
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Mic aria-hidden="true" className="h-3.5 w-3.5" />
+                  {p.production.speakingCount} Sprechen
+                </span>
+                {p.production.lastEstimatedLevel ? (
+                  <span>dernier niveau estimé : {p.production.lastEstimatedLevel}</span>
+                ) : null}
+                {hasLearn ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5">
+                      <BookOpen aria-hidden="true" className="h-3.5 w-3.5" />
+                      {p.lessonsDone} leçon(s)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers aria-hidden="true" className="h-3.5 w-3.5" />
+                      {p.dueCards} carte(s) à réviser
+                    </span>
+                  </>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -225,7 +281,10 @@ export default async function DashboardPage({
       {p.formats.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">🧩 Par type de tâche</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Puzzle aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+              Par type de tâche
+            </CardTitle>
             <CardDescription>Du plus faible au plus fort (minimum 5 réponses).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -304,22 +363,26 @@ function LevelProgressStrip({
           return (
             <div key={level} className="flex items-center gap-1.5">
               <div
-                className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
-                  isCurrent
-                    ? "bg-primary text-primary-foreground"
-                    : isMastered
-                      ? "bg-green-100 text-green-800"
-                      : "bg-muted text-muted-foreground opacity-60"
-                }`}
-              >
-                {isMastered ? (
-                  <span>{level} ✅</span>
-                ) : isCurrent ? (
-                  <span>📍 {level}</span>
-                ) : (
-                  <span>🔒 {level}</span>
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
+                  isCurrent && "bg-primary text-primary-foreground",
+                  isMastered && "bg-success/15 text-success",
+                  isLocked && "bg-muted text-muted-foreground opacity-60"
                 )}
-                {isTarget ? <span className="ml-1">🎯</span> : null}
+              >
+                {/* L'icône double le statut, elle ne le remplace pas : le niveau
+                    reste écrit, et `title` le nomme pour les lecteurs d'écran. */}
+                {isMastered ? (
+                  <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                ) : isCurrent ? (
+                  <MapPin aria-hidden="true" className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock aria-hidden="true" className="h-3.5 w-3.5" />
+                )}
+                <span>{level}</span>
+                {isTarget ? (
+                  <Target aria-hidden="true" className="ml-0.5 h-3.5 w-3.5 text-accent" />
+                ) : null}
               </div>
               {idx < ALL_LEVELS.length - 1 && (
                 <span className={`text-xs ${isLocked ? "text-muted-foreground/40" : "text-muted-foreground"}`}>
@@ -341,7 +404,10 @@ function LevelProgressStrip({
         {sessions > 0 ? (
           <div className="h-1.5 w-full max-w-xs rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${avgPct >= 70 ? "bg-green-500" : "bg-primary"}`}
+              className={cn(
+                "h-full rounded-full transition-all",
+                avgPct >= 70 ? "bg-success" : "bg-primary"
+              )}
               style={{ width: `${Math.min(avgPct, 100)}%` }}
               aria-hidden="true"
             />
