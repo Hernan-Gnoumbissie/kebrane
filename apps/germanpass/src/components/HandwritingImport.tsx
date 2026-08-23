@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { PenLine } from "lucide-react";
 
 /**
  * Import d'une copie manuscrite (photo) → transcription OCR.
@@ -45,8 +46,13 @@ export function HandwritingImport({
 
   return (
     <div className="rounded-md border border-dashed p-3 text-sm">
-      <button type="button" className="font-medium underline" onClick={() => setOpen((o) => !o)}>
-        ✍️ Composé sur papier ? Importer une photo
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 font-medium underline"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PenLine aria-hidden="true" className="h-4 w-4" />
+        Composé sur papier ? Importer une photo
       </button>
       {open ? (
         <div className="mt-2 space-y-2">
@@ -64,7 +70,7 @@ export function HandwritingImport({
             onChange={(e) => void handleFiles(e.target.files)}
             className="block text-xs"
           />
-          {busy ? <p className="text-xs text-blue-600">Transcription en cours…</p> : null}
+          {busy ? <p className="text-xs text-info">Transcription en cours…</p> : null}
           {err ? <p className="text-xs text-destructive">{err}</p> : null}
         </div>
       ) : null}

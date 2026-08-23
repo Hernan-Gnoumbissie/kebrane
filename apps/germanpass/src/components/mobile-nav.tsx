@@ -114,7 +114,7 @@ export function MobileNav({ nav, isAdmin, firstName }: MobileNavProps) {
               {firstName && (
                 <div className="px-4 py-3 border-b">
                   <p className="text-sm font-semibold text-foreground">
-                    Bonjour {firstName} 👋
+                    Bonjour {firstName}
                   </p>
                 </div>
               )}

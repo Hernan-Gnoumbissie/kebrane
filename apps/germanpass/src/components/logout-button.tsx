@@ -13,7 +13,7 @@ export function LogoutButton() {
       size="sm"
       onClick={() => signOut({ redirectUrl: "/" })}
       aria-label="Se déconnecter"
-      className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+      className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-2"
     >
       <LogOut className="h-4 w-4" aria-hidden="true" />
       Déconnexion

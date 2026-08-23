@@ -9,7 +9,7 @@ const LABELS = [
   "Mot de passe robuste",
 ] as const;
 
-const COLORS = ["", "bg-destructive", "bg-amber-500", "bg-emerald-600"] as const;
+const COLORS = ["", "bg-destructive", "bg-warning", "bg-success"] as const;
 
 /**
  * Retour visuel non bloquant sur la robustesse du mot de passe.

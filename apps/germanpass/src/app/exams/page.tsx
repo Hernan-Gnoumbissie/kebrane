@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { BarChart3, Check, CheckCircle2, Mic, Square, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HandwritingImport } from "@/components/HandwritingImport";
+import { cn } from "@/lib/utils";
 
 type ExamListItem = {
   id: string;
@@ -460,16 +462,33 @@ export default function ExamsPage() {
       ) : null}
 
       {report ? (
-        <Card className={report.result.verdict === "bestanden" ? "border-green-500" : report.result.verdict === "tdn" ? "border-blue-500" : "border-red-400"}>
+        <Card
+          className={cn(
+            report.result.verdict === "bestanden" && "border-success/60",
+            report.result.verdict === "tdn" && "border-info/60",
+            report.result.verdict !== "bestanden" &&
+              report.result.verdict !== "tdn" &&
+              "border-destructive/60"
+          )}
+        >
           <CardHeader>
-            <CardTitle>
+            {/* Le verdict est le seul endroit de l'app ou la couleur porte un
+                enjeu emotionnel. L'icone l'accompagne, le texte le dit. */}
+            <CardTitle className="flex items-center gap-2">
+              {report.result.verdict === "tdn" ? (
+                <BarChart3 aria-hidden="true" className="h-5 w-5 text-info" />
+              ) : report.result.verdict === "bestanden" ? (
+                <CheckCircle2 aria-hidden="true" className="h-5 w-5 text-success" />
+              ) : (
+                <XCircle aria-hidden="true" className="h-5 w-5 text-destructive" />
+              )}
               {report.result.verdict === "tdn"
-                ? `📊 Résultat TestDaF — ${report.result.totalPct} %`
-                : `${report.result.verdict === "bestanden" ? "✅ Bestanden" : "❌ Nicht bestanden"} — ${report.result.totalPct} %`}
+                ? `Résultat TestDaF — ${report.result.totalPct} %`
+                : `${report.result.verdict === "bestanden" ? "Bestanden" : "Nicht bestanden"} — ${report.result.totalPct} %`}
             </CardTitle>
             <p className="text-sm text-muted-foreground">{report.result.detail}</p>
             {report.pendingEvaluations ? (
-              <div className="flex items-center gap-2 text-sm text-amber-600">
+              <div className="flex items-center gap-2 text-sm text-warning">
                 <svg className="animate-spin h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
@@ -481,8 +500,17 @@ export default function ExamsPage() {
           <CardContent className="space-y-3">
             <ul className="space-y-1 text-sm">
               {report.result.perSection.map((s) => (
-                <li key={s.section}>
-                  {s.section} : {s.pct} % {s.tdn ? `— ${s.tdn}` : s.passed === null ? "" : s.passed ? "✓" : "✗"}
+                <li key={s.section} className="flex items-center gap-1.5">
+                  <span>
+                    {s.section} : {s.pct} %{s.tdn ? ` — ${s.tdn}` : ""}
+                  </span>
+                  {!s.tdn && s.passed !== null ? (
+                    s.passed ? (
+                      <Check aria-hidden="true" className="h-3.5 w-3.5 text-success" />
+                    ) : (
+                      <X aria-hidden="true" className="h-3.5 w-3.5 text-destructive" />
+                    )
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -570,16 +598,24 @@ function ExamRecorder({ attemptId, taskId, maxSec }: { attemptId: string; taskId
     }
   }
 
-  if (state === "sent") return <p className="text-sm text-green-700">✓ Enregistrement envoyé</p>;
+  if (state === "sent")
+    return (
+      <p className="flex items-center gap-1.5 text-sm text-success">
+        <Check aria-hidden="true" className="h-4 w-4" />
+        Enregistrement envoyé
+      </p>
+    );
   return (
     <div className="space-y-1">
       {state === "recording" ? (
         <Button size="sm" variant="destructive" onClick={() => recRef.current?.stop()}>
-          🔴 Arrêter l&apos;enregistrement
+          <Square aria-hidden="true" className="mr-1.5 h-3.5 w-3.5 fill-current" />
+          Arrêter l&apos;enregistrement
         </Button>
       ) : (
         <Button size="sm" onClick={() => void startRec()}>
-          🎙 Enregistrer ma réponse
+          <Mic aria-hidden="true" className="mr-1.5 h-4 w-4" />
+          Enregistrer ma réponse
         </Button>
       )}
       {state === "error" ? <p className="text-sm text-destructive">Micro inaccessible ou envoi échoué.</p> : null}

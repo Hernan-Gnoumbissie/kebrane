@@ -14,7 +14,7 @@ export function SyncIndicator() {
   return (
     <span
       title={`${pendingCount} révision${pendingCount > 1 ? "s" : ""} en attente de synchronisation`}
-      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+      className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning"
     >
       <svg
         className="h-3 w-3 animate-spin"

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { LevelSelector } from "@/components/LevelSelector";
+import { cn } from "@/lib/utils";
 
 type SanQuestion = {
   id: string;
@@ -40,7 +43,7 @@ type ResultRow = {
 type Level = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
 function scoreMessage(pct: number): string {
-  if (pct >= 90) return "🏆 Performance exceptionnelle ! Tu es prêt(e) pour le niveau suivant.";
+  if (pct >= 90) return "Performance exceptionnelle ! Tu es prêt(e) pour le niveau suivant.";
   if (pct >= 70) return "Excellent résultat ! Tu maîtrises bien ce niveau.";
   if (pct >= 50) return "Bon travail ! Tu progresses bien, continue sur ta lancée.";
   return "Ne te décourage pas, chaque essai compte ! Analyse tes erreurs et réessaie.";
@@ -104,7 +107,7 @@ export default function PracticePage() {
     setBusy(false);
     if (!res.ok) {
       if (data.error?.code === "LEVEL_LOCKED") {
-        setErr(`🔒 ${data.error.message ?? "Ce niveau n'est pas encore débloqué."}`);
+        setErr(data.error.message ?? "Ce niveau n'est pas encore débloqué.");
       } else {
         setErr(data.error?.message ?? "Impossible de démarrer la session");
       }
@@ -162,7 +165,10 @@ export default function PracticePage() {
   function renderQuestion(q: SanQuestion) {
     const r = results?.rows.find((row) => row.questionId === q.id);
     return (
-      <Card key={q.id} className={r ? (r.isCorrect ? "border-green-400" : "border-red-400") : ""}>
+      <Card
+        key={q.id}
+        className={cn(r && (r.isCorrect ? "border-success/60" : "border-destructive/60"))}
+      >
         <CardHeader>
           <CardTitle className="text-base">{q.prompt}</CardTitle>
         </CardHeader>
@@ -279,8 +285,18 @@ export default function PracticePage() {
 
           {r ? (
             <div className="mt-2 rounded-md bg-muted p-3 text-sm">
-              <p className="font-medium">
-                {r.isCorrect ? "✓ Correct" : "✗ Incorrect"} — {r.pointsAwarded}/{r.points} pt
+              <p
+                className={cn(
+                  "flex items-center gap-1.5 font-medium",
+                  r.isCorrect ? "text-success" : "text-destructive"
+                )}
+              >
+                {r.isCorrect ? (
+                  <Check aria-hidden="true" className="h-4 w-4" />
+                ) : (
+                  <X aria-hidden="true" className="h-4 w-4" />
+                )}
+                {r.isCorrect ? "Correct" : "Incorrect"} — {r.pointsAwarded}/{r.points} pt
               </p>
               {pickExplanation(r, explLang) ? (
                 <p className="mt-1 text-muted-foreground" lang={explLang}>
@@ -315,23 +331,12 @@ export default function PracticePage() {
 
       {/* ── Notification de déblocage de niveau ── */}
       {unlockedLevel ? (
-        <div
-          role="status"
-          className="rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800"
-        >
-          <p className="text-base font-semibold">
-            🎉 Félicitations ! Tu as débloqué le niveau {unlockedLevel} !
-          </p>
-          <p className="mt-1">
-            Tu as atteint 70 % de score moyen sur 5 sessions. Continue sur ta lancée !
-          </p>
-          <button
-            className="mt-2 text-xs underline text-green-700"
-            onClick={() => setUnlockedLevel(null)}
-          >
+        <Alert variant="success" titre={`Niveau ${unlockedLevel} débloqué`}>
+          <p>Tu as atteint 70 % de score moyen sur 5 sessions. Continue sur ta lancée !</p>
+          <button className="mt-2 text-xs underline" onClick={() => setUnlockedLevel(null)}>
             Fermer
           </button>
-        </div>
+        </Alert>
       ) : null}
 
       {!session ? (
@@ -420,7 +425,10 @@ export default function PracticePage() {
               <CardContent className="pt-6">
                 <p className="text-xl font-bold">Score : {results.pct} %</p>
                 {results.pct >= 60 ? (
-                  <p className="mt-1 text-sm text-green-600 font-medium">✓ Seuil de réussite atteint (60 %)</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-success">
+                    <Check aria-hidden="true" className="h-4 w-4" />
+                    Seuil de réussite atteint (60 %)
+                  </p>
                 ) : (
                   <p className="mt-1 text-sm text-muted-foreground">Seuil de réussite : 60 %. Continuez à vous entraîner !</p>
                 )}
@@ -433,8 +441,9 @@ export default function PracticePage() {
           ) : (
             <div className="space-y-2">
               {!busy && unanswered > 0 ? (
-                <p className="text-sm text-amber-600">
-                  ⚠️ {unanswered} question{unanswered > 1 ? "s" : ""} sans réponse
+                <p className="flex items-center gap-1.5 text-sm text-warning">
+                  <AlertTriangle aria-hidden="true" className="h-4 w-4" />
+                  {unanswered} question{unanswered > 1 ? "s" : ""} sans réponse
                 </p>
               ) : null}
               <Button onClick={() => void submit()} disabled={busy} size="lg">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,8 +45,11 @@ export function ContactForm() {
 
   if (done) {
     return (
-      <div className="rounded-2xl border bg-green-50 p-6 text-center text-sm text-green-800">
-        <p className="font-semibold">Message envoyé ✓</p>
+      <div className="rounded-2xl border bg-success/10 p-6 text-center text-sm text-foreground">
+        <p className="flex items-center justify-center gap-1.5 font-semibold">
+          <Check aria-hidden="true" className="h-4 w-4 text-success" />
+          Message envoyé
+        </p>
         <p className="mt-1">Merci ! Nous revenons vers vous au plus vite à l&apos;adresse indiquée.</p>
         <button type="button" className="mt-3 underline" onClick={() => setDone(false)}>
           Envoyer un autre message

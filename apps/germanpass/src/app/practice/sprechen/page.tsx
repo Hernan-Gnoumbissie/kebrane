@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LevelSelector } from "@/components/LevelSelector";
@@ -46,7 +47,7 @@ const PROVIDERS = ["GOETHE", "OSD", "TELC", "ECL", "TESTDAF"] as const;
 type Phase = "setup" | "prep" | "recording" | "uploading" | "waiting" | "done";
 
 function scoreMessage(pct: number): string {
-  if (pct >= 90) return "🏆 Performance exceptionnelle ! Tu es prêt(e) pour le niveau suivant.";
+  if (pct >= 90) return "Performance exceptionnelle ! Tu es prêt(e) pour le niveau suivant.";
   if (pct >= 70) return "Excellent résultat ! Tu maîtrises bien ce niveau.";
   if (pct >= 50) return "Bon travail ! Tu progresses bien, continue sur ta lancée.";
   return "Ne te décourage pas, chaque essai compte ! Analyse tes erreurs et réessaie.";
@@ -221,8 +222,9 @@ export default function SprechenPage() {
   return (
     <main className="container max-w-3xl space-y-6 py-10">
       <h1 className="text-3xl font-bold">Entraînement Sprechen</h1>
-      <p className="text-sm text-muted-foreground">
-        ⚠️ L&apos;évaluation de la prononciation est approximative ; la note orale est indicative.
+      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+        <AlertTriangle aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        L&apos;évaluation de la prononciation est approximative ; la note orale est indicative.
       </p>
 
       {consented === null ? (
@@ -289,14 +291,25 @@ export default function SprechenPage() {
             ) : null}
 
             {phase === "prep" ? (
-              <p className="text-lg font-bold" role="timer">
-                🕐 Préparation : {countdown}s
+              <p className="flex items-center gap-2 text-lg font-bold" role="timer">
+                <Clock aria-hidden="true" className="h-5 w-5" />
+                Préparation : {countdown}s
               </p>
             ) : null}
             {phase === "recording" ? (
               <div className="space-y-2">
-                <p className="text-lg font-bold text-red-600" role="timer">
-                  🔴 Enregistrement : {countdown}s restantes
+                <p
+                  className="flex items-center gap-2 text-lg font-bold text-destructive"
+                  role="timer"
+                >
+                  {/* Le point pulsant est la convention universelle de
+                      l'enregistrement en cours. `motion-safe` : il s'arrête
+                      pour qui demande moins d'animations. */}
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3 w-3 shrink-0 rounded-full bg-destructive motion-safe:animate-pulse"
+                  />
+                  Enregistrement : {countdown}s restantes
                 </p>
                 <Button variant="destructive" onClick={() => stopRecording()}>
                   Arrêter et envoyer
@@ -305,8 +318,8 @@ export default function SprechenPage() {
             ) : null}
             {phase === "uploading" ? <p className="text-sm">Envoi de l&apos;audio…</p> : null}
             {phase === "waiting" ? (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-3">
-                <svg className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-blue-500" viewBox="0 0 24 24" fill="none"
+              <div className="rounded-lg border border-info/30 bg-info/10 p-4 text-sm text-foreground flex items-start gap-3">
+                <svg className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-info" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 6v6l4 2" />
@@ -381,8 +394,8 @@ export default function SprechenPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {submission.feedback.errors.map((e, i) => (
-                  <div key={i} className="rounded-md border-l-4 border-amber-400 bg-amber-50 p-3 text-sm">
-                    <p className="text-xs font-semibold uppercase text-amber-700">{e.type}</p>
+                  <div key={i} className="rounded-md border-l-4 border-warning bg-warning/10 p-3 text-sm">
+                    <p className="text-xs font-semibold uppercase text-warning">{e.type}</p>
                     <p>
                       <s>{e.excerpt}</s> → <strong lang="de">{e.correction}</strong>
                     </p>

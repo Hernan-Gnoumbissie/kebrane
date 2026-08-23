@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Check, CheckCircle2, Circle, CircleDot, Lock, WifiOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,7 @@ export default function LearnPage() {
           pendingCount > 0 || isOffline
             ? ` (${pendingCount + 1} révision${pendingCount + 1 > 1 ? "s" : ""} synchronisée${pendingCount + 1 > 1 ? "s" : ""} au retour du réseau)`
             : "";
-        setMsg(`Révision terminée ! 🎉${pendingMsg}`);
+        setMsg(`Révision terminée !${pendingMsg}`);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -209,12 +210,13 @@ export default function LearnPage() {
 
       {/* Bandeau offline en mode flashcards */}
       {view === "flashcards" && flashcardsSource === "offline" && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          📡 Mode hors ligne — vos réponses seront synchronisées au retour du réseau.
+        <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-foreground">
+          <WifiOff aria-hidden="true" className="h-4 w-4 shrink-0" />
+          Mode hors ligne — vos réponses seront synchronisées au retour du réseau.
         </div>
       )}
 
-      {msg ? <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{msg}</p> : null}
+      {msg ? <p className="rounded-md bg-success/10 p-3 text-sm text-foreground">{msg}</p> : null}
 
       {view === "courses" ? (
         <>
@@ -232,7 +234,12 @@ export default function LearnPage() {
                   title={isLocked ? `Débloque ce niveau en atteignant 70 % de score moyen en ${currentLevel}` : undefined}
                   className={isMastered ? "opacity-60" : ""}
                 >
-                  {isMastered ? "✅ " : isLocked ? "🔒 " : ""}{l}
+                  {isMastered ? (
+                    <Check aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
+                  ) : isLocked ? (
+                    <Lock aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
+                  ) : null}
+                  {l}
                 </Button>
               );
             })}
@@ -242,7 +249,7 @@ export default function LearnPage() {
           </div>
 
           {isOffline ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm text-foreground">
               <strong>Mode hors ligne</strong> — les chapitres ne peuvent pas être chargés sans connexion.
               Vous pouvez quand même réviser vos flashcards si elles ont été mises en cache.
             </div>
@@ -296,9 +303,18 @@ export default function LearnPage() {
                         disabled={isOffline}
                         title={isOffline ? "Connexion requise" : undefined}
                       >
-                        {l.progress.status === "COMPLETED" ? "✅" : l.progress.status === "IN_PROGRESS" ? "🔄" : "⬜"}{" "}
+                        {/* Trois états, trois icônes distinctes de FORME (pas
+                            seulement de couleur) : cercle coché, cercle en
+                            cours, cercle vide. */}
+                        {l.progress.status === "COMPLETED" ? (
+                          <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-success" />
+                        ) : l.progress.status === "IN_PROGRESS" ? (
+                          <CircleDot aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />
+                        ) : (
+                          <Circle aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
                         {l.title}
-                        {isOffline && <span className="ml-1 text-xs text-amber-600">(hors ligne)</span>}
+                        {isOffline && <span className="ml-1 text-xs text-warning">(hors ligne)</span>}
                       </button>
                       {l.progress.bestScore !== null ? (
                         <span className="text-muted-foreground">{l.progress.bestScore} %</span>
@@ -357,7 +373,7 @@ export default function LearnPage() {
                 <p className="text-xs text-muted-foreground">
                   Carte {cardIdx + 1} / {cards.length}
                   {flashcardsSource === "offline" && (
-                    <span className="ml-2 text-amber-600">· hors ligne</span>
+                    <span className="ml-2 text-warning">· hors ligne</span>
                   )}
                 </p>
                 <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">

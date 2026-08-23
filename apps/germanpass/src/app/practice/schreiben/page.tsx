@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LevelSelector } from "@/components/LevelSelector";
@@ -37,7 +38,7 @@ type Feedback = {
 const PROVIDERS = ["GOETHE", "OSD", "TELC", "ECL", "TESTDAF"] as const;
 
 function scoreMessage(pct: number): string {
-  if (pct >= 90) return "🏆 Performance exceptionnelle ! Tu es prêt(e) pour le niveau suivant.";
+  if (pct >= 90) return "Performance exceptionnelle ! Tu es prêt(e) pour le niveau suivant.";
   if (pct >= 70) return "Excellent résultat ! Tu maîtrises bien ce niveau.";
   if (pct >= 50) return "Bon travail ! Tu progresses bien, continue sur ta lancée.";
   return "Ne te décourage pas, chaque essai compte ! Analyse tes erreurs et réessaie.";
@@ -66,9 +67,9 @@ export default function SchreibenPage() {
     if (!prompt) return "";
     const min = prompt.minWords ?? 0;
     const max = prompt.maxWords ?? Infinity;
-    if (wordCount < min) return "text-amber-600 font-semibold";
+    if (wordCount < min) return "text-warning font-semibold";
     if (wordCount > max) return "text-destructive font-semibold";
-    return "text-green-600 font-semibold";
+    return "text-success font-semibold";
   })();
 
   useEffect(() => {
@@ -210,8 +211,8 @@ export default function SchreibenPage() {
           </Card>
 
           {pendingId ? (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-3">
-              <svg className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-blue-500" viewBox="0 0 24 24" fill="none"
+            <div className="rounded-lg border border-info/30 bg-info/10 p-4 text-sm text-foreground flex items-start gap-3">
+              <svg className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-info" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 6v6l4 2" />
@@ -229,7 +230,7 @@ export default function SchreibenPage() {
           {!result && !pendingId && (
             <>
               <div className="flex items-center justify-between text-sm">
-                <span className={secondsLeft === 0 ? "font-bold text-destructive animate-pulse" : secondsLeft !== null && secondsLeft <= 60 ? "font-bold text-amber-600" : ""}>
+                <span className={secondsLeft === 0 ? "font-bold text-destructive animate-pulse" : secondsLeft !== null && secondsLeft <= 60 ? "font-bold text-warning" : ""}>
                   ⏱ {mm}:{String(ss).padStart(2, "0")}
                   {secondsLeft === 0 ? " — temps écoulé !" : secondsLeft !== null && secondsLeft <= 60 ? " — dépêchez-vous !" : ""}
                 </span>
@@ -245,13 +246,15 @@ export default function SchreibenPage() {
                 </div>
               </div>
               {prompt?.minWords !== null && wordCount > 0 && wordCount < (prompt?.minWords ?? 0) ? (
-                <p className="text-xs text-amber-600">
-                  ⚠️ Il manque encore {(prompt?.minWords ?? 0) - wordCount} mot{(prompt?.minWords ?? 0) - wordCount > 1 ? "s" : ""} pour atteindre le minimum requis.
+                <p className="flex items-center gap-1.5 text-xs text-warning">
+                  <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  Il manque encore {(prompt?.minWords ?? 0) - wordCount} mot{(prompt?.minWords ?? 0) - wordCount > 1 ? "s" : ""} pour atteindre le minimum requis.
                 </p>
               ) : null}
               {prompt?.maxWords !== null && wordCount > (prompt?.maxWords ?? Infinity) ? (
-                <p className="text-xs text-destructive">
-                  ✗ Vous avez dépassé le maximum de {prompt?.maxWords} mots de {wordCount - (prompt?.maxWords ?? 0)}.
+                <p className="flex items-center gap-1.5 text-xs text-destructive">
+                  <X aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  Vous avez dépassé le maximum de {prompt?.maxWords} mots de {wordCount - (prompt?.maxWords ?? 0)}.
                 </p>
               ) : null}
               <HandwritingImport
@@ -320,8 +323,8 @@ export default function SchreibenPage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {result.feedback.errors.map((e, i) => (
-                      <div key={i} className="rounded-md border-l-4 border-amber-400 bg-amber-50 p-3 text-sm">
-                        <p className="text-xs font-semibold uppercase text-amber-700">{e.type}</p>
+                      <div key={i} className="rounded-md border-l-4 border-warning bg-warning/10 p-3 text-sm">
+                        <p className="text-xs font-semibold uppercase text-warning">{e.type}</p>
                         <p>
                           <s>{e.excerpt}</s> → <strong lang="de">{e.correction}</strong>
                         </p>

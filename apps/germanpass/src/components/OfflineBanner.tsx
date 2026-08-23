@@ -1,5 +1,7 @@
 "use client";
 
+import { WifiOff } from "lucide-react";
+
 /**
  * Bannière sticky affichée quand l'utilisateur est hors-ligne
  * ou quand des révisions sont en attente de synchronisation.
@@ -21,13 +23,13 @@ export function OfflineBanner() {
       className={[
         "sticky top-0 z-50 px-4 py-2 text-center text-sm font-medium leading-tight",
         isOffline
-          ? "bg-amber-400 text-amber-950"
-          : "bg-blue-600 text-white",
+          ? "bg-warning text-warning-foreground"
+          : "bg-info text-info-foreground",
       ].join(" ")}
     >
       {isOffline ? (
         <>
-          📡{" "}
+          <WifiOff aria-hidden="true" className="mr-1.5 inline-block h-4 w-4 align-text-bottom" />
           <span>
             Mode hors ligne — certaines fonctionnalités sont limitées
           </span>
