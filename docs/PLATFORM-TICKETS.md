@@ -1178,46 +1178,71 @@ reflètent sans redéploiement ; le changement apparaît au journal.
 ## Phase 10 — dette découverte en marge de la Phase 9 (22 août 2026)
 
 Ces trois tickets sont nés d'une tentative d'illustrer la vitrine avec de vraies
-captures de GermanPass. La tentative a été **arrêtée volontairement** : elle a mis au
-jour un problème d'architecture plus important que son objectif de départ.
+captures de GermanPass. La tentative a été **arrêtée volontairement** pour instruire
+d'abord ce qu'elle avait fait apparaître.
 
-### KB-35 · `nodemailer` fuit dans le graphe de `@kebrane/core`
-**P1 · S · dépend de : —** — **Statut : diagnostiqué, non corrigé**
+> **Leçon rétrospective (23 août 2026)** : KB-35 avait été déposé sans reproduction
+> propre, à partir d'un `next dev` lancé sur un `.next` que j'avais moi-même mis dans
+> un état incohérent. Il annonçait un build de production cassé — il ne l'était pas —
+> et prescrivait un correctif déjà en place. Un ticket écrit depuis un symptôme
+> observé une fois, dans un environnement qu'on a soi-même perturbé, coûte plus cher
+> que pas de ticket du tout : il oriente la personne suivante vers la mauvaise piste.
 
-`packages/core/package.json` expose déjà le SMTP comme point d'entrée SÉPARÉ :
+### KB-35 · `nodemailer` bundlé pour le runtime edge en `dev --webpack`
+**P3 · S · dépend de : —** — **Statut : corrigé et vérifié (23 août 2026)**
 
-```json
-"exports": { ".": "./src/index.ts", "./notifications-smtp": "./src/notifications-smtp.ts" }
+> ⚠ **La première rédaction de ce ticket était fausse sur ses deux points
+> principaux.** Elle est conservée ici, corrigée, parce que l'erreur est instructive :
+> un diagnostic posé sans reproduction propre.
+>
+> - **Faux n° 1** — « le build de production de GermanPass est cassé ». Il ne l'est
+>   pas. `pnpm --filter @kebrane/germanpass build` passe, **avant comme après** le
+>   correctif : exit 0, toutes les routes générées. La panne n'existait qu'en
+>   `next dev --webpack`.
+> - **Faux n° 2** — « rendre l'import dynamique dans `bootstrap.ts` ». Il l'est
+>   **déjà** (`await import("./notifications-smtp")`, ligne 29), et depuis toujours.
+>   Un `await import()` ne met rien hors d'atteinte du bundler : webpack résout les
+>   imports dynamiques comme les autres, il en fait simplement un chunk séparé.
+>
+> D'où la sévérité ramenée de **P1 à P3** : ce que je prenais pour un build de
+> production cassé était un mode de développement non utilisé — `package.json`
+> déclare `"dev": "next dev"`, donc Turbopack.
+
+**Le vrai mécanisme.** `instrumentation.ts` garde bien son EXÉCUTION
+(`if (process.env.NEXT_RUNTIME !== "nodejs") return;`) avant d'importer
+`@kebrane/core`. Mais une garde d'exécution n'empêche pas le BUNDLING : `next dev`
+compile l'instrumentation pour les **deux** runtimes. Côté edge, la chaîne
+`@kebrane/core → bootstrap → notifications-smtp → nodemailer` réclame `stream`, un
+module Node absent de l'edge :
+
+```
+○ Compiling /instrumentation ...
+⨯ ../../node_modules/nodemailer/lib/base64/index.js:3:21
+  Module not found: Can't resolve 'stream'
 ```
 
-Cette séparation existe précisément pour que `nodemailer` ne parte pas avec le reste.
-Elle est **annulée** par un import statique : `bootstrap.ts` importe
-`notifications-smtp.ts`, et `index.ts` réexporte `bootstrap`. Résultat, la chaîne
-complète entre dans le graphe de **quiconque importe `@kebrane/core`** :
+Turbopack élimine cette branche morte, webpack non. Le build de production, lui, ne
+produit pas cette compilation edge de l'instrumentation — d'où un build vert et un
+`dev --webpack` en 500.
 
-```
-src/instrumentation.ts → @kebrane/core (index.ts) → bootstrap.ts → notifications-smtp.ts → nodemailer
-```
+- [x] Externaliser `nodemailer` **pour le runtime edge uniquement**, via une fonction
+      `webpack` dans `apps/germanpass/next.config.ts` conditionnée à
+      `nextRuntime === "edge"`. On externalise plutôt qu'on ne fournit un
+      `resolve.fallback` : il n'y a rien à remplacer, ce code ne doit jamais
+      s'exécuter là.
+- [x] Vérifié : `dev --webpack` passe de **500 avec 2 erreurs de bundler** à
+      **200 avec 0 erreur** ; le build de production reste vert.
 
-`nodemailer` charge ses transports par `require` conditionnel, dont un
-`@aws-sdk/client-ses` qui n'est pas installé (dépendance optionnelle, inutilisée).
+⚠ **Fausse piste écartée** : ajouter `"nodemailer"` à `serverExternalPackages` ne
+change rien — l'option ne couvre pas la compilation edge de l'instrumentation.
+Essayé, sans effet, annulé.
 
-- [ ] Rendre l'import **dynamique** (`await import("./notifications-smtp")`) dans
-      `bootstrap.ts`, pour que le point d'entrée séparé serve enfin à quelque chose.
-- [ ] Confirmer par `pnpm --filter @kebrane/germanpass build`.
+**Ce qui n'a PAS été touché, à dessein** : `packages/core/src/bootstrap.ts`. Le
+problème est un réglage de bundler propre à une app, pas un défaut de Core. Kebrane
+n'a pas besoin du correctif (Turbopack) et ne l'a pas reçu — si son `dev` passait un
+jour à webpack, il faudrait y reporter les mêmes lignes.
 
-**Qui est touché** : GermanPass construit sa production avec **webpack**
-(`next build --webpack`) → l'application entière tombe en **500**
-(`Module not found: Can't resolve 'stream'`, puis l'AWS SDK). Kebrane construit avec
-Turbopack, qui tolère l'import manquant : ses builds sont verts, le problème y est
-**latent**, pas absent — il se réveillerait au premier passage à webpack.
-
-⚠ **Fausse piste déjà écartée** : ajouter `"nodemailer"` à `serverExternalPackages`
-dans `apps/germanpass/next.config.ts` **ne suffit pas** — l'option ne couvre pas le
-bundle d'instrumentation, la trace d'import reste identique. Essayé, sans effet,
-annulé.
-
-**Fichiers** : `packages/core/src/bootstrap.ts`.
+**Fichiers** : `apps/germanpass/next.config.ts`.
 
 ### KB-36 · Captures produit réelles pour la vitrine
 **P3 · M · dépend de : KB-35** — **Statut : à faire (chaîne cartographiée)**
