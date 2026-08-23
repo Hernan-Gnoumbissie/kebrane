@@ -24,6 +24,35 @@
     }
   }
 
+  /* Apparition à l'ouverture de la page.
+
+     Volontairement MINUSCULE : 12 px de montée, 500 ms, une seule fois. Ce
+     n'est pas un effet, c'est une mise en place — l'œil suit l'ordre de lecture
+     au lieu de recevoir la page d'un bloc. Tout ce qui bouge davantage sur un
+     site sobre finit par ressembler à une démonstration technique.
+
+     Le bloc `prefers-reduced-motion` ci-dessus la neutralise déjà (`!important`
+     sur `animation-duration`), donc rien à redéclarer ici : le contenu
+     s'affiche simplement, sans saut ni disparition. C'est pour ça que
+     l'animation part de `opacity: 0` mais que l'état final est l'état normal —
+     un utilisateur qui refuse les animations voit la page complète, pas une
+     page vide. */
+  @keyframes kb-apparition {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .kb-apparition {
+    animation: kb-apparition 500ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    animation-delay: var(--kb-delai, 0ms);
+  }
+
   /* Cible de focus visible et sobre — le Ciel de la charte, pas un halo criard.
      Sans ça, la navigation au clavier se fait à l'aveugle. */
   :focus-visible {

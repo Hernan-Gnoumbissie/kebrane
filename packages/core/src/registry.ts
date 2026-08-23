@@ -46,27 +46,29 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   // hub, en double du registre : deux catalogues = dérive assurée. Ils entrent
   // donc ici, en `COMING_SOON` et sans URL — la landing et le hub les lisent
   // désormais au même endroit.
+  //
+  // NOMMAGE (décision PO, 22 août 2026) : convention « -Pass » des documents
+  // fondateurs (brand/docs/L-Identite-verbale-Kebrane.md) + qualificatif local
+  // porté par la tagline. GermanPass n'est donc plus l'exception.
+  //
   // ⚠ Accents PROVISOIRES (repris de la landing) — même réserve que GermanPass :
   // la charte produit par produit reste une décision PO.
   {
-    slug: "tcf-canada",
-    name: "TCF Canada",
-    tagline: "Test de connaissance du français — entraînement et simulations.",
+    slug: "tcfpass",
+    name: "TCFPass",
+    tagline: "Le TCF pour le Canada — entraînement et simulations.",
     accentColor: "#2E6F5E",
     status: ProductStatus.COMING_SOON,
   },
   {
-    slug: "permis-cameroun",
-    name: "Permis Cameroun",
-    tagline: "Préparation à l'examen du permis de conduire.",
+    slug: "permitpass",
+    name: "PermitPass",
+    tagline: "Le code de la route au Cameroun — préparation à l'examen du permis.",
     accentColor: "#B8860B",
     status: ProductStatus.COMING_SOON,
   },
-  {
-    slug: "gestion-formation",
-    name: "Gestion Formation",
-    tagline: "Administration des centres de formation.",
-    accentColor: "#5C6672",
-    status: ProductStatus.COMING_SOON,
-  },
+  // « Gestion Formation » RETIRÉ du catalogue public (décision PO, 22 août 2026) :
+  // outil de gestion (B2B), il ne fait tomber aucune barrière personnelle et sort
+  // du périmètre du Manifeste. À réintroduire seulement s'il est repositionné comme
+  // produit servant une personne — avec un slug/nom conformes à la convention.
 ];

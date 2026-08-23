@@ -14,13 +14,27 @@ import { cn } from "../lib/cn";
 const SYMBOL_PATH =
   "M60 8 L108 112 L12 112 Z M46 112 L46 60 Q46 42 60 42 Q74 42 74 60 L74 112 Z";
 
-/** Symbole « A ouvert » nu. Hérite de la couleur via `currentColor` (Marine par défaut). */
-export function KebraneSymbol({ className }: { className?: string }) {
+/**
+ * Symbole « A ouvert » nu. Hérite de la couleur via `currentColor` (Marine par défaut).
+ *
+ * `decoratif` : à utiliser dès que le symbole est un ORNEMENT (filigrane, fond)
+ * et non la marque. Il sort alors de l'arbre d'accessibilité au lieu d'annoncer
+ * « Kebrane » une seconde fois — sur une page qui porte déjà le logotype dans
+ * son en-tête, un lecteur d'écran l'entendrait deux fois sans rien y gagner.
+ */
+export function KebraneSymbol({
+  className,
+  decoratif = false,
+}: {
+  className?: string;
+  decoratif?: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 120 120"
-      role="img"
-      aria-label="Kebrane"
+      {...(decoratif
+        ? { "aria-hidden": true, focusable: false }
+        : { role: "img", "aria-label": "Kebrane" })}
       className={cn("h-8 w-auto text-primary", className)}
     >
       <path d={SYMBOL_PATH} fill="currentColor" fillRule="evenodd" />

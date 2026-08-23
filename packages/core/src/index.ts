@@ -14,14 +14,25 @@ export { PRODUCT_REGISTRY, type ProductDefinition } from "./registry";
 export {
   CAPABILITIES,
   ALL_CAPABILITIES,
+  CAPABILITY_LABELS,
   FREE_CAPABILITIES,
   FREE_AI_BUDGET_MICRO_USD,
   MICRO_USD_PER_USD,
+  ESTIMATED_WRITING_CORRECTION_MICRO_USD,
+  capabilityLabel,
+  estimatedWritingCorrections,
   isKnownCapability,
   type Capability,
 } from "./capabilities";
 // Catalogue des offres (KB-13) — la BASE dit ce qui est vendu.
-export { plans, PLAN_REGISTRY, type PlanDefinition, type Plan } from "./plans";
+export {
+  plans,
+  PLAN_REGISTRY,
+  type PlanDefinition,
+  type PlanUpdate,
+  type PlanCatalogueEntry,
+  type Plan,
+} from "./plans";
 // Droits effectifs + enveloppe IA (KB-13).
 export { entitlements, type Entitlement } from "./entitlements";
 // Catalogue d'événements et notifications (KB-14).
@@ -41,6 +52,8 @@ export {
   type NotificationChannel,
   type NotificationMessage,
 } from "./notifications";
+// Droits RGPD actionnables : export et effacement (KB-28).
+export { privacy, type AccountExport } from "./privacy";
 // Amorçage des services optionnels (KB-21).
 export { bootstrapKebrane } from "./bootstrap";
 // Indicateurs de pilotage (KB-15).
@@ -225,8 +238,22 @@ export const accounts = {
 
 /** Registre des produits de la maison Kebrane. */
 export const products = {
+  /** Tous les produits, y compris retirés — vue d'administration. */
   list(): Promise<Product[]> {
     return db.product.findMany({ orderBy: { createdAt: "asc" } });
+  },
+  /**
+   * Produits montrables au public : tout sauf `DISABLED`.
+   *
+   * `DISABLED` veut dire « retiré du catalogue ». Sans ce filtre, un produit
+   * retiré s'affichait quand même — en « Bientôt disponible », c'est-à-dire en
+   * PROMESSE, ce qui est exactement le contraire de ce que le statut demande.
+   */
+  listPublic(): Promise<Product[]> {
+    return db.product.findMany({
+      where: { status: { not: ProductStatus.DISABLED } },
+      orderBy: { createdAt: "asc" },
+    });
   },
   bySlug(slug: string): Promise<Product | null> {
     return db.product.findUnique({ where: { slug } });

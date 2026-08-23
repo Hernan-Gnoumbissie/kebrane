@@ -6,7 +6,7 @@ import "./globals.css";
 
 const DESCRIPTION =
   "La maison edtech Kebrane : une seule identité pour préparer vos examens, " +
-  "apprendre et progresser. GermanPass, TCF Canada, Permis Cameroun.";
+  "apprendre et progresser. GermanPass, TCFPass, PermitPass.";
 
 export const metadata: Metadata = {
   // `metadataBase` est indispensable : sans lui, Next émet les URL d'images
