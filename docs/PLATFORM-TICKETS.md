@@ -1245,31 +1245,57 @@ jour à webpack, il faudrait y reporter les mêmes lignes.
 **Fichiers** : `apps/germanpass/next.config.ts`.
 
 ### KB-36 · Captures produit réelles pour la vitrine
-**P3 · M · dépend de : KB-35** — **Statut : à faire (chaîne cartographiée)**
+**P3 · M · dépend de : contenu GermanPass** — **Statut : BLOQUÉ — il n'y a rien à
+photographier (constaté le 23 août 2026)**
 
 Décision PO : illustrer la vitrine avec de **vraies captures de GermanPass** plutôt
-qu'avec de la photo d'ambiance. C'est le type d'image qui convertit sur une page
-produit, il n'engage aucun budget et aucun risque de droits.
+qu'avec de la photo d'ambiance. L'intention reste bonne ; elle bute sur un fait.
 
-Ce qu'il reste à faire, dans l'ordre — chaque étape a été vérifiée comme nécessaire :
+**Le blocage n'est pas technique.** L'outillage est prêt : Chromium Playwright
+installé, GermanPass démarre (KB-35 corrigé), la chaîne d'authentification est
+cartographiée. Ce qui manque, c'est le **contenu**. Comptage en base de dev :
 
-- [ ] **KB-35 d'abord** : sans lui, GermanPass ne démarre pas sous webpack.
-- [ ] Compte de démonstration : le login est passé à **Clerk** (`<SignIn>`), il faut
-      donc créer l'utilisateur via l'API Backend Clerk (`CLERK_SECRET_KEY` présent
-      dans `apps/germanpass/.env.local`) plutôt que par le formulaire.
-- [ ] Lui accorder un **accès actif** via Core — sinon `/dashboard` n'affiche que
-      « compte en attente d'activation ».
-- [ ] **Vérifier que la base GermanPass contient réellement du contenu**
-      (leçons, sujets d'examen). Non vérifié à ce jour : capturer des écrans vides
-      serait pire que pas d'image du tout.
-- [ ] Script Playwright de capture vers `apps/kebrane/public/captures/`, puis
-      intégration dans `/produits/germanpass` et la landing via `next/image`.
+| | |
+|---|---|
+| Cours | 1 |
+| Leçons | 1 |
+| Exercices de leçon | 5 |
+| **Examens blancs** | **0** |
+| **Questions** | **0** |
+| **Passages** | **0** |
+| **Sujets d'expression écrite** | **0** |
+| **Tâches d'expression orale** | **0** |
+| **Flashcards** | **0** |
+| **Tentatives** | **0** |
 
-**Acquis** : le navigateur Playwright (Chromium) est **installé** dans
-`~/.cache/ms-playwright` — c'était le blocage matériel, il est levé.
+Or ce sont précisément les écrans qu'une page produit doit montrer : `/exams`,
+`/practice/schreiben`, `/practice/sprechen`, `/progress`. Tous rendraient un **état
+vide**. Une page de vente illustrée d'écrans vides est pire que la même page sans
+image : elle prouve que le produit n'a rien dedans.
+
+⚠ **Le seed ne résout pas ça** : `prisma/seed.ts` ne pose que le compte admin et
+**22 blueprints d'examens** — des STRUCTURES (provider × niveau), pas des sujets. Le
+relancer ne créerait aucun `MockExam`, aucune `Question`, aucun `Passage`.
+
+**Ce qui débloquerait, par ordre de coût :**
+
+- [ ] **Contenu de démonstration** dans la base de dev : au moins un examen blanc
+      complet, un sujet d'expression écrite et quelques flashcards. C'est un travail
+      de rédaction pédagogique, pas de développement — et il ne s'invente pas : le
+      contenu doit être original et respecter les structures publiques des épreuves
+      (clause d'indépendance, KB-22).
+- [ ] Ensuite seulement : compte de démonstration via l'API Backend Clerk
+      (le login est passé à `<SignIn>`, le formulaire maison n'existe plus), accès
+      actif accordé via Core, puis script Playwright vers
+      `apps/kebrane/public/captures/` et intégration via `next/image`.
+
+**Seule capture honnête possible aujourd'hui** : l'écran `/learn` avec son unique
+leçon. C'est une vraie image d'une vraie interface, mais une seule capture ne porte
+pas une page produit — et elle ne montre aucune des quatre compétences que la page
+met en avant.
 
 ⚠ **Contrainte CSP** : `img-src 'self' data: blob: https://img.clerk.com`. Toute
-image doit être **auto-hébergée** dans `public/` ; aucun CDN externe ne passera.
+image devra être **auto-hébergée** dans `public/` ; aucun CDN externe ne passera.
 
 ### KB-37 · Suite e2e GermanPass périmée
 **P3 · S · dépend de : —** — **Statut : à faire**
