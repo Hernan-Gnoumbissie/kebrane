@@ -1298,19 +1298,55 @@ met en avant.
 image devra être **auto-hébergée** dans `public/` ; aucun CDN externe ne passera.
 
 ### KB-37 · Suite e2e GermanPass périmée
-**P3 · S · dépend de : —** — **Statut : à faire**
+**P3 · S · dépend de : —** — **Statut : fait (23 août 2026) — suite exécutée pour la
+première fois**
 
-`apps/germanpass/tests/e2e/critical.spec.ts` pilote un formulaire e-mail/mot de passe
-maison (`getByLabel("Mot de passe / Passwort")`) qui **n'existe plus** : la connexion
-est passée au composant `<SignIn>` de Clerk. Les tests d'inscription, de connexion et
-d'anti-bruteforce ne peuvent donc que échouer.
+`apps/germanpass/tests/e2e/critical.spec.ts` pilotait un formulaire e-mail/mot de
+passe maison (`getByLabel("Mot de passe / Passwort")`) qui **n'existe plus** : la
+connexion est passée au composant `<SignIn>` de Clerk.
 
-Ils n'avaient jamais signalé la régression parce qu'ils étaient **inexécutables** :
-aucun navigateur Playwright n'était installé. Il l'est désormais — la suite va se
-mettre à échouer bruyamment, ce qui est le comportement souhaitable.
+Ces tests n'avaient jamais signalé la régression parce qu'ils étaient
+**inexécutables** — aucun navigateur Playwright n'était installé. C'est ce qui les
+rendait pires qu'absents : ils donnaient l'illusion d'une couverture.
 
-- [ ] Réécrire les parcours d'authentification sur Clerk, ou les retirer s'ils sont
-      couverts ailleurs.
+**Retiré — deux tests, deux raisons différentes :**
+
+- [x] *« inscription → compte PENDING → activation admin »* : pilotait un champ
+      supprimé. Il ne pouvait que échouer.
+- [x] *« anti-bruteforce : 5 échecs verrouillent le compte »* : ce verrou était
+      **notre** code ; il est aujourd'hui celui de Clerk. Tester la protection
+      anti-bruteforce d'un prestataire n'est pas notre travail — c'est la sienne, et
+      elle changera sans nous prévenir. Le retirer n'est donc pas une perte de
+      couverture, mais la fin d'une couverture illusoire.
+
+**Conservé — après vérification que chacun tient encore :**
+
+- [x] Santé de l'application (`/api/health`, db + redis).
+- [x] Disclaimer légal sur la landing — la mention d'indépendance est une
+      obligation, pas une décoration. Texte confirmé présent (`src/app/page.tsx`).
+- [x] Redirection des zones protégées vers `/login`. Ce test **survit au changement
+      de fournisseur d'identité** parce que le proxy la fait sans toucher au
+      formulaire — contrairement à ceux qui remplissaient des champs.
+
+**Ajouté :**
+
+- [x] `/login` monte bien l'écran Clerk (`.cl-rootBox`). Volontairement
+      superficiel : on vérifie que la porte s'ouvre, pas le comportement interne de
+      Clerk. Une clé publique absente laisserait une page vide — c'est le cas le
+      plus fréquent, et celui qu'on attrape.
+
+**Résultat** : `pnpm --filter @kebrane/germanpass test:e2e` → **4 passés, 1 `fixme`**,
+en 3 min 6 s.
+
+⚠ **Trou assumé et documenté en tête du fichier** : plus aucun parcours
+d'authentification n'est couvert. Le combler demanderait un utilisateur créé par
+l'**API Backend de Clerk** et les *testing tokens* de Clerk, qui contournent la
+détection de bot en environnement de test. Chantier à part entière, non fait.
+
+Le `test.fixme` de l'examen blanc pointe désormais vers **KB-36** : il ne pourra pas
+être écrit avant qu'une banque de contenu existe.
+
+**Fichiers** : `apps/germanpass/tests/e2e/critical.spec.ts`.
 
 ---
 
