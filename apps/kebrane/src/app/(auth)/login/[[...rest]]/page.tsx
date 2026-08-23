@@ -1,9 +1,8 @@
 import { SignIn } from "@clerk/nextjs";
 
+export const metadata = { title: "Se connecter" };
+
+// La mise en page (logo, lien d'évitement, rappel légal) vit dans `(auth)/layout.tsx`.
 export default function LoginPage() {
-  return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <SignIn signUpUrl="/register" fallbackRedirectUrl="/hub" />
-    </main>
-  );
+  return <SignIn signUpUrl="/register" fallbackRedirectUrl="/hub" />;
 }

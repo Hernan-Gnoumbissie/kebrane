@@ -1,5 +1,5 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
 import { getKebraneSession } from "@kebrane/auth/server";
 import { access, products as coreProducts, AccessStatus, ProductStatus } from "@kebrane/core";
 import type { Product, ProductAccess } from "@kebrane/core";
@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  KebraneLogo,
   cn,
 } from "@kebrane/ui";
 
@@ -83,7 +82,7 @@ export default async function HubPage() {
 
   // Registre des produits + accès du compte, lus via l'interface de services.
   const [registered, accesses] = await Promise.all([
-    coreProducts.list(),
+    coreProducts.listPublic(),
     access.forAccount(account.id),
   ]);
 
@@ -92,42 +91,41 @@ export default async function HubPage() {
   );
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6">
-      <header className="flex items-center justify-between border-b border-border py-5">
-        <KebraneLogo />
-        <UserButton />
-      </header>
+    <>
+      <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Mon espace</p>
+      <h1 className="mt-1 text-3xl font-bold text-primary">Bonjour {account.name}</h1>
+      <p className="mt-2 text-muted-foreground">
+        Un compte Kebrane, tous vos produits. Rôle : {account.role.toLowerCase()}.
+      </p>
+      <Link
+        href="/hub/parametres"
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-5")}
+      >
+        Paramètres du compte
+      </Link>
 
-      <main className="flex-1 py-10">
-        <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Mon espace</p>
-        <h1 className="mt-1 text-3xl font-bold text-primary">Bonjour {account.name}</h1>
-        <p className="mt-2 text-muted-foreground">
-          Un compte Kebrane, tous vos produits. Rôle : {account.role.toLowerCase()}.
+      <h2 className="mb-4 mt-10 text-sm uppercase tracking-[0.2em] text-muted-foreground">
+        Vos produits
+      </h2>
+
+      {registered.length === 0 ? (
+        <p className="text-muted-foreground">
+          Aucun produit n&apos;est encore enregistré. Lancez le seed du registre :{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
+            pnpm --filter @kebrane/core seed
+          </code>
         </p>
-
-        <h2 className="mb-4 mt-10 text-sm uppercase tracking-[0.2em] text-muted-foreground">
-          Vos produits
-        </h2>
-
-        {registered.length === 0 ? (
-          <p className="text-muted-foreground">
-            Aucun produit n&apos;est encore enregistré. Lancez le seed du registre :{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
-              pnpm --filter @kebrane/core seed
-            </code>
-          </p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {registered.map((p: Product) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                status={statusByProductId.get(p.id) ?? null}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {registered.map((p: Product) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              status={statusByProductId.get(p.id) ?? null}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
