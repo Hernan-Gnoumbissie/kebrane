@@ -953,7 +953,7 @@ qui traîne est une promotion silencieuse au prochain compte créé avec cet ema
 Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env se sont multipliées.
 - **Consolider/documenter** les variables par app : `KEBRANE_DATABASE_URL`, `DATABASE_URL`, `KEBRANE_ACCESS_ENFORCE`, `CLERK_FRONTEND_API_ORIGIN`, `GERMANPASS_URL`, `NEXT_PUBLIC_*`. `.env.example` complets et à jour.
 - **DNS** : sous-domaines `app.` / `germanpass.` (+ `admin.`) de `kebrane.com` ; **instance Clerk de prod** + provisioning `clerk.kebrane.com` ; renseigner `CLERK_FRONTEND_API_ORIGIN`.
-- **PostgreSQL de prod** (hébergeur — décision PO) ; **répliquer la CSP Clerk** dans `apps/germanpass/deploy/nginx.conf`.
+- **Hébergement (décision PO, 22 août 2026) : serveur IONOS auto-géré** (VPS/dédié), **PostgreSQL de prod sur le même serveur**. Implique une prod **auto-gérée**, pas une plateforme managée : processus Node par app (PM2/systemd), **reverse-proxy nginx** portant la CSP Clerk (répliquer `apps/germanpass/deploy/nginx.conf`), TLS (Let's Encrypt), sauvegardes Postgres, et une stratégie de build/déploiement (CI → artefact → serveur). Postgres local au serveur = latence minimale et une décision ouverte en moins, au prix de la sauvegarde/supervision à ta charge.
 - Rejouer `pnpm --filter @kebrane/core seed` (registre **et offres**, KB-13) + `pnpm --filter @kebrane/germanpass kebrane:backfill` **au déploiement**.
 - **Premier administrateur — séquence exacte (décidée le 6 août 2026).** L'adresse retenue
   est **nominative sur le domaine** (`hernan@kebrane.com`, IONOS) : elle est vue des clients
@@ -1000,14 +1000,291 @@ Le code SSO est prêt (KB-10) mais rien n'est déployé, et les variables d'env 
   déploiement. À défaut, ajouter le handler.
 - Dérouler le **parcours SSO connecté réel** (« hub → Ouvrir GermanPass → retour ») — le reste-à-faire de KB-10.
 **Acceptation** : les deux apps déployables sur sous-domaines ; SSO connecté prouvé de bout en bout ; seed + backfill intégrés au déploiement.
-**Décisions PO** : hébergeur PostgreSQL de prod ; confirmation topologie **sous-domaines** (déjà tranchée de fait par KB-10, à valider).
+**Décisions PO** : ~~hébergeur PostgreSQL de prod~~ → **tranché : serveur IONOS auto-géré, Postgres sur le même serveur** (22 août 2026) ; confirmation topologie **sous-domaines** (déjà tranchée de fait par KB-10, à valider).
 
 ---
 
-## Statut synthétique (17 août 2026)
+## Phase 9 — Pages du site (légal + éditorial)
+
+**Cadre commun à tous les tickets de cette phase.** Chaque page vit dans `apps/kebrane`
+(domaine `kebrane.com`), est construite avec `@kebrane/ui` (charte : Georgia en titres,
+Marine/Papier, Rouge en accent RARE ≤ 5 %), est **responsive** et **accessible** (mêmes
+acquis que KB-16 : lien d'évitement, focus visible, `prefers-reduced-motion`). Le pied de
+page de la vitrine reçoit une **colonne « Légal »** liant les pages B ci-dessous, présente
+sur **toutes** les pages. Les brouillons de contenu FR sont dans
+`docs/content/` (voir KB-32) — le PO n'a qu'à remplir les marqueurs `[À COMPLÉTER]`.
+
+> ⚠ **Ce que le code ne peut pas inventer** (fournis par le PO) : identité de l'éditeur
+> (nom, statut juridique — personne physique / entrepreneur individuel —, adresse),
+> hébergeur retenu, numéro d'immatriculation éventuel, et la **grille tarifaire** (montants,
+> offres). Sans eux, les pages Mentions légales / CGV / Tarifs restent des gabarits.
+
+### KB-22 · Mentions légales (`/mentions-legales`)
+**P1 · S · dépend de : KB-02, KB-16** — **Statut : fait (2 marqueurs PO ouverts)**
+- [x] Page dédiée sur `kebrane.com` (aujourd'hui INEXISTANTE côté Kebrane ; seule une version partielle vit dans GermanPass).
+- [x] Éditeur (nom, statut, adresse), directeur de publication, hébergeur (nom + adresse), contact, immatriculation si applicable — depuis `docs/content/mentions-legales.md`.
+      ⚠ **adresse postale** et **immatriculation** restent des marqueurs `[À COMPLÉTER]` VISIBLES en page : rien n'a été inventé.
+- [x] Clause d'indépendance vis-à-vis des organismes certificateurs (reprise/mutualisée depuis la page GermanPass).
+**Acceptation** : page conforme charte, liée au footer, contact identifiable.
+**Fichiers** : `apps/kebrane/src/app/(legal)/mentions-legales/page.tsx`.
+
+### KB-23 · CGU — Conditions Générales d'Utilisation (`/cgu`)
+**P1 · M · dépend de : KB-22** — **Statut : fait (date d'effet à fixer par le PO)**
+- [x] Règles d'usage du **compte Kebrane** (un compte, plusieurs produits), disponibilité du service, responsabilités, propriété intellectuelle, résiliation.
+- [x] Renvoi par lien vers la Politique de confidentialité (KB-25).
+**Acceptation** : document lisible, versionné (date d'effet), lié au footer et à l'inscription (KB-27).
+**Fichiers** : `apps/kebrane/src/app/(legal)/cgu/page.tsx`.
+
+### KB-24 · CGV — Conditions Générales de Vente (`/cgv`)
+**P1 · M · dépend de : KB-22, KB-13** — **Statut : page livrée ; 4 décisions PO ouvertes**
+- [x] Page en ligne, **sans aucun montant** : renvoie à `/tarifs` (KB-34), source unique des offres.
+- [x] Encadrent la vente d'abonnements : prix, moyens de paiement (mobile money), facturation, droit applicable.
+- [ ] **PO** : reconduction (auto/manuelle), remboursement, mention TTC/taxe, droit de rétractation — marqueurs `[À COMPLÉTER]` visibles en page.
+      → **Clauses rédigées et prêtes à poser** dans `docs/DECISIONS-CGV.md` (points A à D), avec options, conséquences et recommandation. Le PO coche, l'intégration est mécanique.
+      ⚠ **La reconduction est tranchée par la technique** : le schéma n'a **aucun modèle d'abonnement récurrent** (ni mandat, ni jeton, ni échéance de prélèvement), et le mobile money en poussée ne laisse pas de mandat. Promettre une reconduction automatique serait promettre ce que le système ne sait pas faire.
+- [ ] Acceptation explicite à l'encaissement (case au checkout, quand le paywall KB-13 sera live) — **hors périmètre de cette phase**.
+**Acceptation** : CGV cohérentes avec le module billing ; acceptées avant paiement.
+**Fichiers** : `apps/kebrane/src/app/(legal)/cgv/page.tsx`.
+
+### KB-25 · Politique de confidentialité / RGPD (`/confidentialite`)
+**P1 · M · dépend de : KB-22** — **Statut : fait (3 marqueurs PO ouverts)**
+- [x] Kebrane = **responsable du traitement**. Données collectées, finalités, base légale, durées de conservation, sous-traitants (Clerk, hébergeur, PSP), transferts, droits (accès/rectification/suppression/portabilité), contact `rgpd@kebrane.com`.
+- [x] Cohérence avec la page GermanPass (données produit) : la maison répond des données, le produit du service.
+- [x] Les droits « exporter » et « supprimer » pointent vers `/hub/parametres`, où ils existent réellement (KB-28).
+- [x] **Transferts hors du pays** : renseignés d'après la pile réelle — hébergement IONOS en **Allemagne (UE)**, authentification **Clerk aux États-Unis**. Seule la localisation du prestataire de paiement reste en attente (KB-13).
+- [ ] **PO** : durées de conservation par catégorie et **âge minimum d'inscription** — clauses rédigées dans `docs/DECISIONS-CGV.md` (points E et F).
+      À noter : la durée de 12 mois proposée sur les contenus soumis (point F) est une **règle nouvelle** et supposerait une purge planifiée, qui n'existe pas — à ouvrir en ticket si elle est retenue.
+**Acceptation** : politique dédiée, liée au footer et à l'inscription ; droits actionnables (voir KB-28).
+**Fichiers** : `apps/kebrane/src/app/(legal)/confidentialite/page.tsx`.
+
+### KB-26 · Politique cookies + bandeau (`/cookies`)
+**P2 · S · dépend de : KB-22** — **Statut : fait (aucun bandeau, à raison)**
+- [x] Page listant les cookies/traceurs. Les cookies de **session Clerk sont exemptés** (essentiels).
+- [x] **Bandeau de consentement UNIQUEMENT si** des traceurs non essentiels sont ajoutés (analytics) — sinon pas de bandeau, pour ne pas demander un consentement inutile.
+      → **Aucun bandeau monté** : le site ne dépose à ce jour que la session Clerk. Le jour où un traceur non essentiel arrive, la page le liste ET le bandeau devient obligatoire.
+**Acceptation** : page cookies liée au footer ; bandeau conforme (refus aussi simple que l'acceptation) si et seulement si traceurs non essentiels.
+**Fichiers** : `apps/kebrane/src/app/(legal)/cookies/page.tsx`.
+
+### KB-27 · Consentement CGU/confidentialité à l'inscription
+**P1 · S · dépend de : KB-23, KB-25** — **Statut : procédure documentée ; reste à ACTIVER dans Clerk (PO)**
+- [x] Procédure écrite pas à pas dans `docs/CLERK-LEGAL-ACCEPTANCE.md` (dashboard → Restrictions → Legal acceptance, URL CGU + confidentialité, à faire sur chaque instance).
+- [x] Aucune case maison codée — le code ne peut pas horodater une acceptation de façon probante, Clerk si.
+- [ ] **PO/ops** : activer l'option sur les instances *Development* et *Production*.
+- [ ] Vérifier que le refus bloque la création de compte (checklist dans le même document).
+**Acceptation** : impossible de créer un compte sans accepter CGU + confidentialité ; l'acceptation est horodatée par Clerk.
+**Fichiers** : dashboard Clerk + `apps/kebrane/src/app/(auth)/register/*`, `docs/CLERK-LEGAL-ACCEPTANCE.md`.
+
+### KB-28 · Compte : export + suppression des données (RGPD)
+**P1 · M · dépend de : KB-06, KB-25** — **Statut : fait**
+- [x] La politique de confidentialité **promet** export et suppression : ils doivent exister côté Kebrane (GermanPass les annonce déjà pour ses données).
+- [x] Écran de paramètres du compte : « Exporter mes données » + « Supprimer mon compte » (délie Clerk + purge/anonymise via `@kebrane/core`, cf. `unlinkClerk`).
+- [x] Service `privacy` dans Core : `exportAccount` (JSON téléchargeable) et `eraseAccount`.
+      **Anonymisation, pas suppression de ligne** : identité effacée, accès supprimés, paiements CONSERVÉS sans le numéro payeur (obligation comptable), journal conservé — c'est lui qui atteste de l'effacement.
+- [x] Ordre des opérations : délier Clerk → effacer Core → supprimer l'utilisateur Clerk. Clerk en dernier parce que c'est la seule étape non rejouable.
+- [x] Deux événements ajoutés au catalogue : `account.data_exported` et `account.erased`, tous deux en **IMPORTANT**.
+**Acceptation** : un membre peut exporter et supprimer depuis son espace ; traces au journal (gravité IMPORTANT).
+**Fichiers** : `apps/kebrane/src/app/hub/parametres/*`, `packages/core/src/privacy.ts`, `packages/core/src/events-catalog.ts`.
+
+### KB-29 · À propos (`/a-propos`)
+**P2 · S · dépend de : KB-16** — **Statut : fait (2 marqueurs PO ouverts)**
+- [x] La maison Kebrane : mission, la promesse « un compte, tous les produits », ce qui relie les produits. Ton sobre de la charte, « By Kebrane ».
+- [x] Contenu depuis `docs/content/a-propos.md`.
+- [ ] **PO** : « Notre approche » (vision) et confirmation de la feuille de route produits.
+**Acceptation** : page conforme charte, liée au footer/nav.
+**Fichiers** : `apps/kebrane/src/app/(marketing)/a-propos/page.tsx`.
+
+### KB-30 · Contact (`/contact`)
+**P2 · S · dépend de : KB-16** — **Statut : fait**
+- [x] Page dédiée (aujourd'hui les adresses sont enfouies dans la page légale). Adresses par responsabilité : service produit (`support@germanpass.io`), données (`rgpd@kebrane.com`), maison (`bonjour@kebrane.com` — [À COMPLÉTER]).
+- [x] Formulaire OPTIONNEL — sinon liens `mailto:` suffisent au lancement. → **pas de formulaire** au lancement, assumé.
+- [ ] **PO** : confirmer `bonjour@kebrane.com`, adresses support des autres produits, affichage ou non de l'adresse postale.
+**Acceptation** : contact accessible en 1 clic depuis le footer.
+**Fichiers** : `apps/kebrane/src/app/(marketing)/contact/page.tsx`.
+
+### KB-31 · FAQ / Centre d'aide (`/faq`) + page produit GermanPass
+**P2 · M · dépend de : KB-16, KB-09** — **Statut : fait (2 réponses PO ouvertes)**
+- [x] **FAQ** : questions récurrentes (compte, abonnement, paiement mobile money, remboursement).
+      Tout est déplié — pas d'accordéon : une réponse repliée n'est trouvée ni à l'œil ni au Ctrl+F.
+- [x] **Page produit GermanPass** dédiée (au-delà de la carte du catalogue) : promesse, niveaux A1–C2, épreuves, CTA — c'est la page de conversion.
+      Nom, accroche et URL lus dans le **registre Core** (KB-19), pas recopiés. Renvoie à `/tarifs`, jamais à un prix.
+- [ ] **PO** : réponses « reconduction » et « remboursement », qui suivront les décisions CGV (KB-24).
+**Acceptation** : FAQ + page produit conformes charte, liées à la vitrine.
+**Fichiers** : `apps/kebrane/src/app/(marketing)/faq/page.tsx`, `.../produits/germanpass/page.tsx`.
+
+### KB-32 · Brouillons de contenu FR des pages
+**P1 · S · dépend de : —** — **Statut : fait (brouillons livrés) ; à compléter par le PO**
+- [x] Brouillons FR rédigés dans `docs/content/` (légal + éditorial), avec marqueurs `[À COMPLÉTER]` pour éditeur/hébergeur/immatriculation/grille tarifaire.
+- [ ] PO : remplir les marqueurs, valider les textes, puis Claude Code intègre page par page.
+**Acceptation** : chaque ticket A/éditorial pointe vers son fichier source de contenu.
+**Fichiers** : `docs/content/*.md`.
+
+### KB-33 · Pied de page « Légal » global + navigation
+**P2 · S · dépend de : KB-22..KB-26, KB-29, KB-30** — **Statut : fait**
+- [x] Footer de la vitrine : colonne **Légal** (mentions, CGU, CGV, confidentialité, cookies) + colonne **Kebrane** (à propos, contact, FAQ, tarifs). Présent sur **toutes** les pages.
+- [x] Liens légaux aussi dans les parcours inscription/checkout → version compacte (`legal-links-inline.tsx`) montée par le gabarit `(auth)`.
+- [x] Groupes de routes `(marketing)` et `(legal)` créés ; la vitrine a quitté `app/page.tsx` pour `app/(marketing)/page.tsx` (même URL). Gabarit `hub/layout.tsx` extrait au passage.
+- [x] Le lien d'évitement `#contenu` (KB-16) est désormais porté par les GABARITS : il ne peut plus manquer sur une page.
+**Acceptation** : toute page du site donne accès aux pages légales en ≤ 1 clic.
+→ **Vérifié** sur les 13 routes publiques (`/`, éditoriales, légales, `/login`, `/register`) : 200 + les 5 liens légaux présents dans le HTML rendu.
+**Fichiers** : `apps/kebrane/src/components/{site-footer,site-header,legal-links-inline}.tsx`, `apps/kebrane/src/app/{(marketing),(legal),(auth),hub}/layout.tsx`.
+
+### KB-34 · Grille tarifaire éditable depuis l'admin + page `/tarifs` dynamique
+**P1 · M · dépend de : KB-13, KB-15** — **Statut : fait**
+
+**Décision PO (22 août 2026)** : les prix ne sont **jamais** codés en dur ni dans une
+page ni dans un fichier de contenu. La grille est **pilotée depuis l'administration**
+et lue en base — le `PLAN_REGISTRY` du code reste un simple **seed** de démarrage.
+
+- [x] **Écran admin des offres** (`admin.kebrane.com/offres`) : liste les `Plan` par produit,
+      **édite prix / nom / description / devise / durée / capacités / enveloppe IA / ordre**,
+      active/désactive une offre. Réservé au rôle **ADMIN** (pas seulement STAFF).
+      ⚠ **Correction au ticket** : l'événement s'appelle `plan.changed` (et `plan.created`),
+      pas `plan.price_changed` — c'est bien celui-là qui est émis, en gravité IMPORTANT.
+- [x] Service d'écriture `plans.update(productSlug, planSlug, patch, { actor })` réservé ADMIN.
+      La vérification du rôle vit **dans Core**, pas dans l'écran : une règle posée dans
+      l'interface ne protège que l'interface. Core reçoit l'`Account` de l'auteur — il n'a
+      pas de notion de session, et la frontière v0.2 veut que ça reste ainsi.
+- [x] Chaque changement de prix **tracé** (qui, quand, avant→après) — l'auteur est écrit dans
+      `Event.accountId` et dans `data.actor`, d'où l'exigence d'une adresse admin
+      **nominative** (KB-20), pas partagée. Idempotent : un enregistrement sans changement
+      réel n'écrit rien au journal.
+- [x] **Page publique `/tarifs`** : lit les offres **en direct depuis Core**
+      (`plans.catalogue()`), `force-dynamic` — une page de prix mise en cache est une page
+      de prix faux. Aucun montant en dur.
+      **Repli assumé différent de la vitrine** : on ne se rabat PAS sur `PLAN_REGISTRY`.
+      Ce registre n'est qu'un seed, et afficher un prix périmé sur une page de vente est
+      pire que ne rien afficher — le prix affiché est celui qui engage (CGV, art. 3).
+      Base injoignable → message honnête + lien contact.
+- [x] Les **CGV (KB-24)** renvoient à `/tarifs` (source unique) plutôt que de répéter
+      des montants figés.
+- [x] Formatage mutualisé dans `@kebrane/ui` (`formatMontant`, `formatDuree`) : l'admin et
+      le client doivent lire **le même prix écrit de la même façon**. Le nombre de décimales
+      est demandé à `Intl` d'après la devise, au lieu de supposer 0 (faux pour l'euro) ou
+      2 (faux pour le XAF).
+- [x] Libellés de capacités (`CAPABILITY_LABELS`) et traduction de l'enveloppe IA en
+      « environ N corrections écrites » (`estimatedWritingCorrections`) dans Core, pour que
+      la grille publique et l'écran d'administration nomment les mêmes choses pareil.
+**Acceptation** : l'admin change un prix → la page `/tarifs` et le paywall le
+reflètent sans redéploiement ; le changement apparaît au journal.
+→ **Vérifié en local** : `/tarifs` rend les 4 offres GermanPass lues en base
+(2 500 / 8 000 / 20 000 / 60 000 FCFA), durées et capacités comprises.
+**Fichiers** : `apps/admin/src/app/offres/*`, `apps/admin/src/components/admin-shell.tsx`,
+`packages/core/src/plans.ts` (service `plans.update`, `allForProduct`, `catalogue`),
+`packages/core/src/capabilities.ts`, `packages/ui/src/lib/format.ts`,
+`apps/kebrane/src/app/(marketing)/tarifs/page.tsx`.
+
+---
+
+## Phase 10 — dette découverte en marge de la Phase 9 (22 août 2026)
+
+Ces trois tickets sont nés d'une tentative d'illustrer la vitrine avec de vraies
+captures de GermanPass. La tentative a été **arrêtée volontairement** : elle a mis au
+jour un problème d'architecture plus important que son objectif de départ.
+
+### KB-35 · `nodemailer` fuit dans le graphe de `@kebrane/core`
+**P1 · S · dépend de : —** — **Statut : diagnostiqué, non corrigé**
+
+`packages/core/package.json` expose déjà le SMTP comme point d'entrée SÉPARÉ :
+
+```json
+"exports": { ".": "./src/index.ts", "./notifications-smtp": "./src/notifications-smtp.ts" }
+```
+
+Cette séparation existe précisément pour que `nodemailer` ne parte pas avec le reste.
+Elle est **annulée** par un import statique : `bootstrap.ts` importe
+`notifications-smtp.ts`, et `index.ts` réexporte `bootstrap`. Résultat, la chaîne
+complète entre dans le graphe de **quiconque importe `@kebrane/core`** :
+
+```
+src/instrumentation.ts → @kebrane/core (index.ts) → bootstrap.ts → notifications-smtp.ts → nodemailer
+```
+
+`nodemailer` charge ses transports par `require` conditionnel, dont un
+`@aws-sdk/client-ses` qui n'est pas installé (dépendance optionnelle, inutilisée).
+
+- [ ] Rendre l'import **dynamique** (`await import("./notifications-smtp")`) dans
+      `bootstrap.ts`, pour que le point d'entrée séparé serve enfin à quelque chose.
+- [ ] Confirmer par `pnpm --filter @kebrane/germanpass build`.
+
+**Qui est touché** : GermanPass construit sa production avec **webpack**
+(`next build --webpack`) → l'application entière tombe en **500**
+(`Module not found: Can't resolve 'stream'`, puis l'AWS SDK). Kebrane construit avec
+Turbopack, qui tolère l'import manquant : ses builds sont verts, le problème y est
+**latent**, pas absent — il se réveillerait au premier passage à webpack.
+
+⚠ **Fausse piste déjà écartée** : ajouter `"nodemailer"` à `serverExternalPackages`
+dans `apps/germanpass/next.config.ts` **ne suffit pas** — l'option ne couvre pas le
+bundle d'instrumentation, la trace d'import reste identique. Essayé, sans effet,
+annulé.
+
+**Fichiers** : `packages/core/src/bootstrap.ts`.
+
+### KB-36 · Captures produit réelles pour la vitrine
+**P3 · M · dépend de : KB-35** — **Statut : à faire (chaîne cartographiée)**
+
+Décision PO : illustrer la vitrine avec de **vraies captures de GermanPass** plutôt
+qu'avec de la photo d'ambiance. C'est le type d'image qui convertit sur une page
+produit, il n'engage aucun budget et aucun risque de droits.
+
+Ce qu'il reste à faire, dans l'ordre — chaque étape a été vérifiée comme nécessaire :
+
+- [ ] **KB-35 d'abord** : sans lui, GermanPass ne démarre pas sous webpack.
+- [ ] Compte de démonstration : le login est passé à **Clerk** (`<SignIn>`), il faut
+      donc créer l'utilisateur via l'API Backend Clerk (`CLERK_SECRET_KEY` présent
+      dans `apps/germanpass/.env.local`) plutôt que par le formulaire.
+- [ ] Lui accorder un **accès actif** via Core — sinon `/dashboard` n'affiche que
+      « compte en attente d'activation ».
+- [ ] **Vérifier que la base GermanPass contient réellement du contenu**
+      (leçons, sujets d'examen). Non vérifié à ce jour : capturer des écrans vides
+      serait pire que pas d'image du tout.
+- [ ] Script Playwright de capture vers `apps/kebrane/public/captures/`, puis
+      intégration dans `/produits/germanpass` et la landing via `next/image`.
+
+**Acquis** : le navigateur Playwright (Chromium) est **installé** dans
+`~/.cache/ms-playwright` — c'était le blocage matériel, il est levé.
+
+⚠ **Contrainte CSP** : `img-src 'self' data: blob: https://img.clerk.com`. Toute
+image doit être **auto-hébergée** dans `public/` ; aucun CDN externe ne passera.
+
+### KB-37 · Suite e2e GermanPass périmée
+**P3 · S · dépend de : —** — **Statut : à faire**
+
+`apps/germanpass/tests/e2e/critical.spec.ts` pilote un formulaire e-mail/mot de passe
+maison (`getByLabel("Mot de passe / Passwort")`) qui **n'existe plus** : la connexion
+est passée au composant `<SignIn>` de Clerk. Les tests d'inscription, de connexion et
+d'anti-bruteforce ne peuvent donc que échouer.
+
+Ils n'avaient jamais signalé la régression parce qu'ils étaient **inexécutables** :
+aucun navigateur Playwright n'était installé. Il l'est désormais — la suite va se
+mettre à échouer bruyamment, ce qui est le comportement souhaitable.
+
+- [ ] Réécrire les parcours d'authentification sur Clerk, ou les retirer s'ils sont
+      couverts ailleurs.
+
+---
+
+## Statut synthétique (23 août 2026)
 - **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18, KB-20, KB-12 [socle ; composants à poursuivre]**.
 - **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-14** (catalogue d'événements + notifications) · **KB-15** (console d'administration + 2FA) · **KB-16** (vitrine publique) · **KB-21** (préparation production).
+- **Faits — Phase 9, commitée le 23 août 2026** : **KB-22, KB-23, KB-25, KB-26, KB-28, KB-29, KB-30, KB-31, KB-32, KB-33, KB-34**. Branche `phase-9-pages-du-site`, huit commits atomiques.
+- **Partiels — Phase 9** :
+  - **KB-24 (CGV)** : page livrée, sans aucun montant, renvoyant à `/tarifs`. Quatre décisions de politique commerciale restent au PO — clauses rédigées et prêtes à poser dans `docs/DECISIONS-CGV.md`.
+  - **KB-27 (consentement)** : code prêt et procédure écrite (`docs/CLERK-LEGAL-ACCEPTANCE.md`) ; il reste à **activer l'option dans le tableau de bord Clerk**, sur les deux instances. Rien à coder.
+- **Marqueurs `[À COMPLÉTER]` encore visibles en page**, par choix assumé : adresse postale et immatriculation de l'éditeur, prestataire de paiement (dépend de KB-13), adresses de support de TCFPass et PermitPass (produits inexistants), et les six points de `docs/DECISIONS-CGV.md`.
 - **Prochains** : KB-04 (nettoyage Vercel — demande un accès à ton compte) · KB-12 [suite] (adoption des composants `@kebrane/ui`, écran par écran, sans urgence).
-- **Bloqués côté PO, pas côté code** : 3 vérifications KPay → adaptateur PSP (KB-13) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · hébergeur PostgreSQL de production (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13).
-- **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay + la grille tarifaire (KB-13) · accent officiel GermanPass (KB-02/09) · PostgreSQL prod (KB-21) · confirmation topologie domaines (KB-10/21).
+- **Phase 9 — pages du site (livrée le 22 août 2026)** : **KB-22..KB-34 faits côté code.** 13 routes publiques en ligne, footer légal sur toutes les pages, export/suppression RGPD réels, grille tarifaire éditable en admin et lue en direct par `/tarifs`. Restent **deux choses hors code** : (1) activer « Legal acceptance » dans le dashboard Clerk (KB-27, procédure dans `docs/CLERK-LEGAL-ACCEPTANCE.md`) ; (2) les marqueurs `[À COMPLÉTER]`, laissés **visibles en page** faute d'information — adresse postale et immatriculation de l'éditeur, dates d'effet, politique CGV (reconduction / remboursement / taxe / rétractation), âge minimum d'inscription, durées de conservation.
+- **Resync du 22 août 2026 (après décisions PO)** : contenu et nommage réalignés.
+  - **Nommage produits « -Pass » propagé jusqu'en base.** Le registre était à jour, mais le seed est un **upsert par slug** : rejoué tel quel il aurait créé `tcfpass`/`permitpass` **à côté** de `tcf-canada`/`permis-cameroun`, et le catalogue en aurait affiché six. Migration `packages/core/scripts/retire-products.ts` : les deux produits sont **renommés en place** (l'`id` survit) et `gestion-formation` passe en `DISABLED` plutôt que d'être supprimé — un retrait de catalogue n'est pas un effacement. Aucune donnée rattachée aux trois lignes, vérifié avant migration ; le script refuse d'agir s'il y en a.
+  - **`products.listPublic()` ajouté** et utilisé par la vitrine et le hub. `products.list()` renvoyait TOUT : un produit `DISABLED` se réaffichait en « Bientôt disponible », c'est-à-dire en **promesse** — l'exact contraire de ce que le statut demande.
+  - **Marqueur « responsable du traitement » résolu** dans la Politique de confidentialité : l'identité de l'éditeur est arrêtée, et nommer le responsable du traitement est une mention obligatoire. L'**adresse postale reste en attente** partout, conformément à la décision PO.
+  - Vérifié après migration : la vitrine affiche exactement GermanPass / TCFPass / PermitPass ; aucune référence aux anciens noms ou slugs ne subsiste dans `apps/` ni `packages/` (hors commentaires qui documentent le retrait).
+- **Correctifs du 22 août 2026 (revue mobile + veille concurrentielle)** :
+  - **En-tête mobile réparé.** La navigation (Tarifs, FAQ, À propos) était en `hidden sm:flex` **sans rien pour la remplacer** : sur téléphone, ces trois pages étaient inatteignables depuis l'en-tête, il fallait descendre au pied de page. Elles passent désormais sur une seconde ligne sous le logo. Trois liens tiennent sur une ligne — pas de menu déroulant, pas de JavaScript. Le reste des pages passait déjà le test à 375 px (cartes empilées, pied de page sur deux colonnes).
+  - **Équivalent en euros sur `/tarifs`** (`formatEquivalentEur`), pour la diaspora qui finance une part des abonnements depuis la zone euro — c'est la raison d'être du canal `PAYPAL`. **Parité FIXE** 1 € = 655,957 FCFA, arrêtée par accord monétaire : aucune cotation à interroger, donc aucune panne possible de ce côté. Affiché en « environ », arrondi à l'euro, avec la mention explicite que **la facturation reste en FCFA**. Rappelé aussi dans l'écran admin : l'administrateur doit voir ce que le client voit.
+  - **Descriptions d'offres nettoyées** dans `PLAN_REGISTRY` : elles répétaient la durée (« 1 mois d'accès — 1 mois d'accès — … »), la carte l'affichant déjà depuis `durationDays`.
+  - **Vitrine illustrée : arrêtée volontairement.** La tentative de captures produit a révélé KB-35 (fuite `nodemailer` dans Core, build webpack GermanPass cassé). Le correctif de Core passe avant l'illustration — voir **Phase 10, KB-35 → KB-37**.
+  - **Veille** — `geekinstitut.com` (Douala) chevauche GermanPass *et* la future division Arrival (visa, admission, compte bloqué, traduction). Leurs cours encadrés sont à 100 000–150 000 FCFA le niveau, soit un autre marché que l'entraînement autonome : à expliciter dans le positionnement. À noter, leur page Prix garde les montants dans du **texte libre** et affiche `-` en colonne prix — exactement ce que la décision KB-34 évite.
+- **⚠ Avant mise en ligne commerciale** : faire relire les textes légaux par un juriste (cf. avertissement de `docs/content/README.md`) — ces pages sont des gabarits documentés, pas un avis juridique.
+- **Bloqués côté PO, pas côté code** : 3 vérifications KPay → adaptateur PSP (KB-13) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13). *(Hébergement/Postgres prod : tranché — IONOS auto-géré, 22 août 2026.)*
+- **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay (KB-13) · accent officiel GermanPass (KB-02/09) · confirmation topologie domaines (KB-10/21). *(Grille tarifaire → éditable en admin, KB-34 ; PostgreSQL prod → IONOS, tranché.)*
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
