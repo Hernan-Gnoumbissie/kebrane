@@ -36,7 +36,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2563eb",
+  // Marine de la charte. C'etait #2563eb — un bleu que la decision PO a rendu
+  // caduc (l'accent GermanPass est le Rouge charte), et qui colorait pourtant la
+  // barre du navigateur en mode application.
+  themeColor: "#1F3352",
   width: "device-width",
   initialScale: 1,
 };

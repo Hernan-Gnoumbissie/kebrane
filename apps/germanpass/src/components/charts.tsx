@@ -1,10 +1,28 @@
 /**
  * Graphiques SVG légers, sans dépendance, rendus côté serveur.
- * Couleurs : vert ≥ 60 % (seuil de réussite), ambre 40-59 %, rouge < 40 %.
+ *
+ * Couleurs : uniquement des TOKENS de la charte (QW-2). Elles étaient
+ * auparavant écrites en hexadécimal dans le SVG — `#2563eb` pour la courbe,
+ * `#16a34a` / `#d97706` / `#dc2626` pour les seuils. Ces valeurs échappaient au
+ * thème (aucune adaptation au mode sombre) et le bleu contredisait la décision
+ * PO : l'accent GermanPass est le Rouge de la charte, pas un bleu.
+ *
+ * On passe par les utilitaires `fill-*` / `stroke-*` de Tailwind plutôt que par
+ * l'attribut SVG : les classes sont écrites en toutes lettres, donc visibles du
+ * compilateur, et suivent le thème comme le reste de l'interface.
+ *
+ * Seuils inchangés : ≥ 60 % réussite, 40-59 % à consolider, < 40 % à travailler.
  */
+import { cn } from "@/lib/utils";
 
-function colorFor(pct: number): string {
-  return pct >= 60 ? "#16a34a" : pct >= 40 ? "#d97706" : "#dc2626";
+/** Classe de REMPLISSAGE selon le score (barres, aplats). */
+function bgFor(pct: number): string {
+  return pct >= 60 ? "bg-success" : pct >= 40 ? "bg-warning" : "bg-destructive";
+}
+
+/** Classe de TRAIT selon le score (anneaux). */
+function strokeFor(pct: number): string {
+  return pct >= 60 ? "stroke-success" : pct >= 40 ? "stroke-warning" : "stroke-destructive";
 }
 
 /** Courbe d'évolution des scores (aire + points). */
@@ -29,19 +47,28 @@ export function ScoreLineChart({ data }: { data: { date: string; pct: number }[]
           </text>
         </g>
       ))}
-      <line x1={pad} x2={w - pad} y1={y(60)} y2={y(60)} stroke="#16a34a" strokeOpacity={0.35} strokeDasharray="4 4" />
-      <polygon points={area} fill="#2563eb" opacity={0.09} />
+      {/* Seuil de réussite à 60 % */}
+      <line
+        x1={pad}
+        x2={w - pad}
+        y1={y(60)}
+        y2={y(60)}
+        className="stroke-success"
+        strokeOpacity={0.35}
+        strokeDasharray="4 4"
+      />
+      <polygon points={area} className="fill-primary" opacity={0.09} />
       <polyline
         points={pts}
         fill="none"
-        stroke="#2563eb"
+        className="stroke-primary"
         strokeWidth={2.5}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
       {data.map((d, i) => (
         <g key={i}>
-          <circle cx={x(i)} cy={y(d.pct)} r={3.5} fill="#2563eb" />
+          <circle cx={x(i)} cy={y(d.pct)} r={3.5} className="fill-primary" />
           {n <= 12 ? (
             <text x={x(i)} y={y(d.pct) - 8} fontSize={9} textAnchor="middle" fill="currentColor" opacity={0.7}>
               {d.pct}
@@ -66,7 +93,7 @@ export function Donut({ pct, label, sublabel }: { pct: number; label: string; su
           cy={45}
           r={r}
           fill="none"
-          stroke={colorFor(pct)}
+          className={strokeFor(pct)}
           strokeWidth={9}
           strokeLinecap="round"
           strokeDasharray={`${(c * Math.min(100, pct)) / 100} ${c}`}
@@ -95,8 +122,8 @@ export function HBar({ label, sub, pct }: { label: string; sub?: string; pct: nu
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
         <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${Math.min(100, pct)}%`, backgroundColor: colorFor(pct) }}
+          className={cn("h-full rounded-full transition-all", bgFor(pct))}
+          style={{ width: `${Math.min(100, pct)}%` }}
         />
       </div>
     </div>
