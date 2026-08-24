@@ -17,6 +17,8 @@ import {
 import { auth } from "@/auth";
 import { cn } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
+import { StatCard } from "@/components/ui/stat-card";
+import { tendanceScore } from "@/lib/tendance";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +70,9 @@ export default async function DashboardPage({
         ) / 10
       : 0;
   const recentHistory = p.history.slice(-12);
+  // Tendance calculee sur l'historique complet, pas sur les 12 derniers points
+  // affiches : le graphique tronque pour rester lisible, la tendance non.
+  const tendance = tendanceScore(p.history);
   const hasData = p.history.length > 0 || p.sections.length > 0;
 
   // Seuil d'urgence : ≤ 3 jours restants
@@ -148,6 +153,50 @@ export default async function DashboardPage({
           )}
         </div>
       </div>
+
+      {/* ── Chiffres clés ──
+          Affichés seulement s'il y a de quoi les remplir : une rangée de zéros
+          le premier jour décourage au lieu d'informer. */}
+      {hasData ? (
+        <div
+          className={cn(
+            "grid gap-3 sm:grid-cols-2",
+            hasLearn ? "lg:grid-cols-4" : "lg:grid-cols-3"
+          )}
+        >
+          <StatCard
+            icone={Target}
+            label={`Score moyen · ${effectiveLevel}`}
+            valeur={`${currentLevelAvgPct} %`}
+            precision="70 % requis pour le niveau suivant"
+            tendance={tendance}
+          />
+          <StatCard
+            icone={ClipboardList}
+            label="Sessions corrigées"
+            valeur={currentLevelSessions}
+            precision={`au niveau ${effectiveLevel}`}
+          />
+          <StatCard
+            icone={PenLine}
+            label="Productions évaluées"
+            valeur={p.production.writingCount + p.production.speakingCount}
+            precision={`${p.production.writingCount} écrites · ${p.production.speakingCount} orales`}
+          />
+          {/* Quatrième carte seulement avec le parcours complet — et on y met
+              une information ACTIONNABLE. « Jour de préparation » et « jours
+              d'accès » figurent déjà dans l'en-tête juste au-dessus : les
+              répéter aurait rempli la grille sans rien apprendre. */}
+          {hasLearn ? (
+            <StatCard
+              icone={Layers}
+              label="Cartes à réviser"
+              valeur={p.dueCards}
+              precision={`${p.lessonsDone} leçon${p.lessonsDone > 1 ? "s" : ""} terminée${p.lessonsDone > 1 ? "s" : ""}`}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Barre de progression CECRL ── */}
       <LevelProgressStrip
