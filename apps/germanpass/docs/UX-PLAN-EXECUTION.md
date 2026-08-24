@@ -43,7 +43,7 @@ Marine/Papier, **Rouge accent RARE ≤ 5 %**).
       par des tokens sémantiques (`--success`, `--warning`, `--danger`, `--info`) dérivés
       de la charte (Ciel/Sable/Rouge en neutres dominants ; Rouge réservé au danger, rare).
       Grep de contrôle : plus aucune classe couleur Tailwind brute sur les pages clés.
-- [ ] **QW-3 · Styliser les contrôles de formulaire.** Radios/cases → **options en cartes
+- [x] **QW-3 · Styliser les contrôles de formulaire.** Radios/cases → **options en cartes
       cliquables** (toute la ligne cliquable, cible ≥ 44 px) ; `<select>` et `<textarea>`
       thémés (composants shadcn) ; classement (ORDERING) avec poignées lisibles (drag si
       simple, sinon ↑↓ plus grands et étiquetés).

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { Select } from "@/components/ui/select";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { LevelSelector } from "@/components/LevelSelector";
 import { cn } from "@/lib/utils";
 
@@ -178,43 +180,43 @@ export default function PracticePage() {
               const current = (responses[q.id] as { optionIds?: string[] })?.optionIds ?? [];
               const checked = current.includes(o.id);
               return (
-                <label key={o.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type={q.taskFormat === "MCQ_SINGLE" ? "radio" : "checkbox"}
-                    name={q.id}
-                    disabled={!!results}
-                    checked={checked}
-                    onChange={() => {
-                      const next =
-                        q.taskFormat === "MCQ_SINGLE"
-                          ? [o.id]
-                          : checked
-                            ? current.filter((id) => id !== o.id)
-                            : [...current, o.id];
-                      setResponse(q.id, { optionIds: next });
-                    }}
-                  />
+                <ChoiceCard
+                  key={o.id}
+                  type={q.taskFormat === "MCQ_SINGLE" ? "radio" : "checkbox"}
+                  name={q.id}
+                  disabled={!!results}
+                  checked={checked}
+                  onChange={() => {
+                    const next =
+                      q.taskFormat === "MCQ_SINGLE"
+                        ? [o.id]
+                        : checked
+                          ? current.filter((id) => id !== o.id)
+                          : [...current, o.id];
+                    setResponse(q.id, { optionIds: next });
+                  }}
+                >
                   {o.text}
-                </label>
+                </ChoiceCard>
               );
             })}
 
           {q.taskFormat === "TRUE_FALSE" && (
-            <div className="flex gap-4">
+            <div className="grid gap-2 sm:grid-cols-2">
               {[
                 { label: "Richtig", value: true },
                 { label: "Falsch", value: false },
               ].map((opt) => (
-                <label key={opt.label} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name={q.id}
-                    disabled={!!results}
-                    checked={(responses[q.id] as { value?: boolean })?.value === opt.value}
-                    onChange={() => setResponse(q.id, { value: opt.value })}
-                  />
+                <ChoiceCard
+                  key={opt.label}
+                  type="radio"
+                  name={q.id}
+                  disabled={!!results}
+                  checked={(responses[q.id] as { value?: boolean })?.value === opt.value}
+                  onChange={() => setResponse(q.id, { value: opt.value })}
+                >
                   {opt.label}
-                </label>
+                </ChoiceCard>
               ))}
             </div>
           )}
@@ -226,9 +228,9 @@ export default function PracticePage() {
               return (
                 <div key={l.leftId} className="flex items-center gap-2 text-sm">
                   <span className="min-w-40">{l.text}</span>
-                  <select
+                  <Select
                     aria-label={`Correspondance pour ${l.text}`}
-                    className="rounded-md border p-1"
+                    className="max-w-64"
                     disabled={!!results}
                     value={selected}
                     onChange={(e) => {
@@ -243,7 +245,7 @@ export default function PracticePage() {
                         {rt.text}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               );
             })}
@@ -354,15 +356,15 @@ export default function PracticePage() {
             <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div>
               <p className="mb-1.5 text-sm font-medium">Compétence</p>
-              <select
+              <Select
                 aria-label="Compétence"
-                className="h-11 rounded-md border bg-background px-3 text-sm"
+                className="w-auto min-w-40"
                 value={section}
                 onChange={(e) => setSection(e.target.value as "LESEN" | "HOEREN")}
               >
                 <option value="LESEN">Lesen</option>
                 <option value="HOEREN">Hören</option>
-              </select>
+              </Select>
             </div>
             <div>
               <p className="mb-1.5 text-sm font-medium">Niveau</p>
@@ -490,20 +492,37 @@ function OrderingWidget({
       {order.map((id, i) => {
         const item = items.find((it) => it.itemId === id);
         return (
-          <li key={id} className="flex items-center gap-2 rounded-md border p-2 text-sm">
+          <li key={id} className="flex items-center gap-3 rounded-md border p-2 text-sm">
+            {/* Le rang est AFFICHÉ : sans lui, réordonner à l'aveugle oblige à
+                recompter la liste après chaque déplacement. */}
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums">
+              {i + 1}
+            </span>
             <span className="flex-1">{item?.text}</span>
-            <Button size="sm" variant="outline" disabled={disabled || i === 0} onClick={() => move(i, -1)} aria-label="Monter">
-              ↑
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={disabled || i === order.length - 1}
-              onClick={() => move(i, 1)}
-              aria-label="Descendre"
-            >
-              ↓
-            </Button>
+            <div className="flex shrink-0 gap-1">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-9 w-9"
+                disabled={disabled || i === 0}
+                onClick={() => move(i, -1)}
+                // Les flèches ↑↓ nues n'annonçaient rien d'utile : le libellé
+                // nomme maintenant l'élément déplacé, pas seulement la direction.
+                aria-label={`Monter « ${item?.text ?? ""} »`}
+              >
+                <ChevronUp aria-hidden="true" className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-9 w-9"
+                disabled={disabled || i === order.length - 1}
+                onClick={() => move(i, 1)}
+                aria-label={`Descendre « ${item?.text ?? ""} »`}
+              >
+                <ChevronDown aria-hidden="true" className="h-4 w-4" />
+              </Button>
+            </div>
           </li>
         );
       })}

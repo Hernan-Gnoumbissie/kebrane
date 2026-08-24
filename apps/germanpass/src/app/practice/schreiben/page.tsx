@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { LevelSelector } from "@/components/LevelSelector";
 import { HandwritingImport } from "@/components/HandwritingImport";
 
@@ -175,11 +177,11 @@ export default function SchreibenPage() {
           <CardContent className="flex flex-wrap items-end gap-4 pt-6">
             <div>
               <p className="mb-1 text-sm font-medium">Examen</p>
-              <select aria-label="Examen" className="rounded-md border p-2" value={provider} onChange={(e) => setProvider(e.target.value)}>
+              <Select aria-label="Examen" className="w-auto min-w-44" value={provider} onChange={(e) => setProvider(e.target.value)}>
                 {PROVIDERS.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <p className="mb-1 text-sm font-medium">Niveau</p>
@@ -261,9 +263,9 @@ export default function SchreibenPage() {
                 onTranscribed={(t) => setText((prev) => (prev ? prev + "\n" : "") + t)}
                 disabled={secondsLeft === 0 || busy}
               />
-              <textarea
+              <Textarea
                 aria-label="Votre production écrite"
-                className="min-h-72 w-full rounded-md border p-4 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-h-72 p-4"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Schreiben Sie hier Ihren Text... (ou importez une photo de votre copie ci-dessus)"

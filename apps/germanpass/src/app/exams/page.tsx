@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, CheckCircle2, Mic, Square, X, XCircle } from "lucide-react";
+import { BarChart3, Check, CheckCircle2, ChevronDown, ChevronUp, Mic, Square, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { HandwritingImport } from "@/components/HandwritingImport";
 import { cn } from "@/lib/utils";
 
@@ -210,19 +213,19 @@ export default function ExamsPage() {
             const sel = (current as { optionIds?: string[] })?.optionIds ?? [];
             const checked = sel.includes(o.id);
             return (
-              <label key={o.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type={q.taskFormat === "MCQ_SINGLE" ? "radio" : "checkbox"}
-                  name={q.id}
-                  checked={checked}
-                  onChange={() => {
-                    const next =
-                      q.taskFormat === "MCQ_SINGLE" ? [o.id] : checked ? sel.filter((x) => x !== o.id) : [...sel, o.id];
-                    setResponses((r) => ({ ...r, [q.id]: { optionIds: next } }));
-                  }}
-                />
+              <ChoiceCard
+                key={o.id}
+                type={q.taskFormat === "MCQ_SINGLE" ? "radio" : "checkbox"}
+                name={q.id}
+                checked={checked}
+                onChange={() => {
+                  const next =
+                    q.taskFormat === "MCQ_SINGLE" ? [o.id] : checked ? sel.filter((x) => x !== o.id) : [...sel, o.id];
+                  setResponses((r) => ({ ...r, [q.id]: { optionIds: next } }));
+                }}
+              >
                 {o.text}
-              </label>
+              </ChoiceCard>
             );
           })}
 
@@ -231,15 +234,15 @@ export default function ExamsPage() {
             { label: "Richtig", value: true },
             { label: "Falsch", value: false },
           ].map((opt) => (
-            <label key={opt.label} className="mr-4 inline-flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={q.id}
-                checked={(current as { value?: boolean })?.value === opt.value}
-                onChange={() => setResponses((r) => ({ ...r, [q.id]: { value: opt.value } }))}
-              />
+            <ChoiceCard
+              key={opt.label}
+              type="radio"
+              name={q.id}
+              checked={(current as { value?: boolean })?.value === opt.value}
+              onChange={() => setResponses((r) => ({ ...r, [q.id]: { value: opt.value } }))}
+            >
               {opt.label}
-            </label>
+            </ChoiceCard>
           ))}
 
         {q.taskFormat === "MATCHING" &&
@@ -248,9 +251,9 @@ export default function ExamsPage() {
             return (
               <div key={l.leftId} className="flex items-center gap-2 text-sm">
                 <span className="min-w-40">{l.text}</span>
-                <select
+                <Select
                   aria-label={`Correspondance pour ${l.text}`}
-                  className="rounded-md border p-1"
+                  className="max-w-64"
                   value={pairs.find((p) => p.leftId === l.leftId)?.rightId ?? ""}
                   onChange={(e) => {
                     const next = pairs.filter((p) => p.leftId !== l.leftId);
@@ -264,7 +267,7 @@ export default function ExamsPage() {
                       {rt.text}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             );
           })}
@@ -425,9 +428,9 @@ export default function ExamsPage() {
                     setWritings((w) => ({ ...w, [wp.id]: (w[wp.id] ? w[wp.id] + "\n" : "") + t }))
                   }
                 />
-                <textarea
+                <Textarea
                   aria-label={`Production écrite tâche ${wp.taskNumber}`}
-                  className="min-h-48 w-full rounded-md border p-3 text-sm"
+                  className="min-h-48"
                   value={writings[wp.id] ?? ""}
                   onChange={(e) => setWritings((w) => ({ ...w, [wp.id]: e.target.value }))}
                 />
@@ -644,14 +647,35 @@ function OrderingInline({
   return (
     <ol className="space-y-1">
       {order.map((id, i) => (
-        <li key={id} className="flex items-center gap-2 rounded-md border p-2 text-sm">
+        <li key={id} className="flex items-center gap-3 rounded-md border p-2 text-sm">
+          {/* Même traitement que dans /practice : le rang est affiché, et les
+              flèches nomment l'élément qu'elles déplacent. */}
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums">
+            {i + 1}
+          </span>
           <span className="flex-1">{items.find((it) => it.itemId === id)?.text}</span>
-          <Button size="sm" variant="outline" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Monter">
-            ↑
-          </Button>
-          <Button size="sm" variant="outline" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label="Descendre">
-            ↓
-          </Button>
+          <div className="flex shrink-0 gap-1">
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-9 w-9"
+              disabled={i === 0}
+              onClick={() => move(i, -1)}
+              aria-label={`Monter « ${items.find((it) => it.itemId === id)?.text ?? ""} »`}
+            >
+              <ChevronUp aria-hidden="true" className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-9 w-9"
+              disabled={i === order.length - 1}
+              onClick={() => move(i, 1)}
+              aria-label={`Descendre « ${items.find((it) => it.itemId === id)?.text ?? ""} »`}
+            >
+              <ChevronDown aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          </div>
         </li>
       ))}
     </ol>

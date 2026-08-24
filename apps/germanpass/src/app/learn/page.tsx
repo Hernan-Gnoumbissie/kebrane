@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { SyncIndicator } from "@/components/SyncIndicator";
 import { useOffline } from "@/hooks/useOffline";
 import { saveCards, getOfflineCards, addPendingReview, type OfflineCard } from "@/lib/offline-db";
@@ -488,6 +489,10 @@ function ExerciseWidget({
   const options = (meta.options as { id: string; text: string }[] | undefined) ?? [];
   const gapIds = (meta.gapIds as string[] | undefined) ?? [];
   const [sel, setSel] = useState<string[]>([]);
+  // Le choix vrai/faux n'avait AUCUN état : l'input était non contrôlé et ne
+  // devait sa sélection visible qu'au comportement natif du navigateur. En
+  // carte cliquable, il faut le suivre explicitement.
+  const [vraiFaux, setVraiFaux] = useState<boolean | null>(null);
   const [gaps, setGaps] = useState<Record<string, string>>({});
 
   return (
@@ -499,24 +504,24 @@ function ExerciseWidget({
 
       {(ex.taskFormat === "MCQ_SINGLE" || ex.taskFormat === "MCQ_MULTI") &&
         options.map((o) => (
-          <label key={o.id} className="flex items-center gap-2 text-sm">
-            <input
-              type={ex.taskFormat === "MCQ_SINGLE" ? "radio" : "checkbox"}
-              name={ex.id}
-              checked={sel.includes(o.id)}
-              onChange={() => {
-                const next =
-                  ex.taskFormat === "MCQ_SINGLE"
-                    ? [o.id]
-                    : sel.includes(o.id)
-                      ? sel.filter((x) => x !== o.id)
-                      : [...sel, o.id];
-                setSel(next);
-                onChange({ optionIds: next });
-              }}
-            />
+          <ChoiceCard
+            key={o.id}
+            type={ex.taskFormat === "MCQ_SINGLE" ? "radio" : "checkbox"}
+            name={ex.id}
+            checked={sel.includes(o.id)}
+            onChange={() => {
+              const next =
+                ex.taskFormat === "MCQ_SINGLE"
+                  ? [o.id]
+                  : sel.includes(o.id)
+                    ? sel.filter((x) => x !== o.id)
+                    : [...sel, o.id];
+              setSel(next);
+              onChange({ optionIds: next });
+            }}
+          >
             {o.text}
-          </label>
+          </ChoiceCard>
         ))}
 
       {ex.taskFormat === "TRUE_FALSE" &&
@@ -524,10 +529,18 @@ function ExerciseWidget({
           { l: "Richtig", v: true },
           { l: "Falsch", v: false },
         ].map((opt) => (
-          <label key={opt.l} className="mr-4 inline-flex items-center gap-2 text-sm">
-            <input type="radio" name={ex.id} onChange={() => onChange({ value: opt.v })} />
+          <ChoiceCard
+            key={opt.l}
+            type="radio"
+            name={ex.id}
+            checked={vraiFaux === opt.v}
+            onChange={() => {
+              setVraiFaux(opt.v);
+              onChange({ value: opt.v });
+            }}
+          >
             {opt.l}
-          </label>
+          </ChoiceCard>
         ))}
 
       {ex.taskFormat === "GAP_FILL" && (
