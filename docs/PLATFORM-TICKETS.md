@@ -1413,7 +1413,7 @@ germanophone) : c'est un chantier distinct, plus lourd, pour le vrai lancement.
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
 
 ### KB-39 · Session héritée de next-auth : tout l'espace admin inaccessible
-**P1 · S · dépend de : —** — **Statut : contourné en local, NON corrigé dans le code**
+**P1 · S · dépend de : —** — **Statut : corrigé et couvert (24 août 2026)**
 
 Symptôme : cliquer sur « Administration » recharge la page et **retombe sur
 `/dashboard`**. Aucun message d'erreur. Reproductible pour tout compte migré.
@@ -1444,12 +1444,31 @@ les routes API admin**, ce qui bloque aussi KB-38.
 
 - [x] Contournement local : purge des `activeSessionId` qui ne commencent pas par
       `sess_`.
-- [ ] **Corriger le code** : la garde doit ignorer une valeur qui n'est pas au format
-      Clerk, plutôt que de la traiter comme une session concurrente. Un test de format
-      (`startsWith("sess_")`) suffit.
-- [ ] **Migration** : purger la colonne pour tous les comptes migrés, en production
-      comme en local.
-- [ ] Vérifier que le webhook Clerk `session.created` alimente bien `activeSessionId` —
-      s'il n'est pas joignable, l'anti-partage ne protège rien et ne fait que casser.
+- [x] **Code corrigé** : la garde n'applique la règle QUE si la valeur stockée est au
+      format Clerk. Ignorer une valeur héritée est le bon comportement — elle ne prouve
+      rien sur une session concurrente.
+- [x] **Migration** `20260824190000_purge_legacy_session_ids`, appliquée. Volontairement
+      conservatrice : seules les valeurs hors format sont effacées, aucune session
+      légitime n'est invalidée.
+- [x] **Webhook vérifié** : `session.created` posait déjà `activeSessionId = data.id`.
+      Le mécanisme n'était pas cassé, seule la donnée héritée l'était.
+- [x] **Test de régression** (`tests/unit/session-heritee.test.ts`), avec la valeur exacte
+      trouvée en base comme cas de test.
 
 **Fichiers** : `apps/germanpass/src/lib/guards.ts`, `src/app/admin/layout.tsx`.
+
+**Effet de bord instructif** : le test de régression, écrit d'abord contre `guards.ts`,
+**ne finissait jamais**. Importer ce module tire `@/auth` → Clerk → Prisma, et le
+processus attendait une connexion au lieu de comparer deux chaînes. Le prédicat vit
+donc désormais dans `src/lib/session-format.ts`, sans aucune dépendance — 343 ms au
+lieu de l'infini.
+
+Ce n'est pas un contournement de test mais le bon découpage : une règle de format n'a
+rien à faire dans le module qui ouvre les connexions. Et cela explique pourquoi le bug
+n'avait jamais été attrapé — **la couche des guards n'était couverte par rien, et ne
+pouvait pas l'être**.
+
+⚠ **À savoir** : l'anti-partage n'a jamais fonctionné depuis la migration Clerk. Avant
+le correctif il rejetait tout le monde ; après, il ne s'activera qu'à la prochaine
+connexion de chaque compte, quand le webhook écrira un vrai `sess_…`. Ce n'est pas une
+régression introduite ici — c'est l'état réel, qui devient visible.

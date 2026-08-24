@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { isKebraneAccessDenied } from "@/lib/kebrane";
 import type { User } from "@prisma/client";
+import { estIdentifiantSessionClerk } from "@/lib/session-format";
 
 export class GuardError extends Error {
   constructor(
@@ -31,7 +32,26 @@ async function requireUser(): Promise<User> {
   }
   // Session unique (anti-partage) : si une connexion plus récente a eu lieu
   // ailleurs, le sid en base ne correspond plus → cette session est invalidée.
-  if (user.activeSessionId && session.user.sid && user.activeSessionId !== session.user.sid) {
+  //
+  // ⚠ On n'applique la règle QUE si la valeur stockée est bien un identifiant
+  // Clerk (KB-39). Les comptes migrés depuis next-auth portent encore un UUID,
+  // qui ne peut par construction jamais égaler un `sess_…` : la comparaison
+  // était donc toujours vraie et rejetait l'utilisateur à CHAQUE requête gardée.
+  //
+  // Le symptôme était trompeur — `/admin` renvoyait 401, le layout redirigeait
+  // vers `/login`, Clerk y voyait une session valide et renvoyait aussitôt vers
+  // `/dashboard`. L'espace admin semblait juste « retomber sur le tableau de
+  // bord », sans erreur ni trace.
+  //
+  // Ignorer la valeur héritée est le bon comportement : elle ne prouve rien sur
+  // une session concurrente. La protection reprend dès la connexion suivante,
+  // quand le webhook `session.created` écrit un vrai identifiant Clerk.
+  if (
+    user.activeSessionId &&
+    estIdentifiantSessionClerk(user.activeSessionId) &&
+    session.user.sid &&
+    user.activeSessionId !== session.user.sid
+  ) {
     throw new GuardError(401, "SESSION_REVOKED", "Votre session a été ouverte sur un autre appareil. Reconnectez-vous.");
   }
   return user;
