@@ -67,7 +67,9 @@ export async function AppHeader() {
         </Link>
 
         {/* ── Navigation desktop ── */}
-        <nav className="hidden md:flex items-center gap-0.5 flex-wrap flex-1">
+        {/* Masquée à partir de `lg` : la barre latérale prend le relais et
+            afficher les deux serait une navigation en double. */}
+        <nav className="hidden md:flex lg:hidden items-center gap-0.5 flex-wrap flex-1">
           <NavLinks nav={nav} />
         </nav>
 

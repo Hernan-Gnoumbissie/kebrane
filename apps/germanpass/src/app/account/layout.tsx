@@ -1,4 +1,4 @@
-import { AppHeader } from "@/components/app-header";
+import { LearnerShell } from "@/components/learner-shell";
 import { AiQuota } from "@/components/ai-quota";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
@@ -25,14 +25,13 @@ export default async function AccountLayout({ children }: { children: React.Reac
   }
 
   return (
-    <>
-      <AppHeader />
+    <LearnerShell>
       {entitlement ? (
         <div className="container max-w-3xl pt-6">
           <AiQuota entitlement={entitlement} />
         </div>
       ) : null}
       {children}
-    </>
+    </LearnerShell>
   );
 }

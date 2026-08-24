@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { AppHeader } from "@/components/app-header";
+import { LearnerShell } from "@/components/learner-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireActivePage } from "@/lib/active-gate";
@@ -19,8 +19,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <>
-      <AppHeader />
+    <LearnerShell>
       {restricted ? (
         <main className="container max-w-2xl py-10">
           <Card>
@@ -45,6 +44,6 @@ export default async function LearnLayout({ children }: { children: React.ReactN
       ) : (
         children
       )}
-    </>
+    </LearnerShell>
   );
 }

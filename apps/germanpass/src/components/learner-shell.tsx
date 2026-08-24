@@ -1,0 +1,27 @@
+import { AppHeader } from "@/components/app-header";
+import { LearnerSidebar } from "@/components/learner-sidebar";
+
+/**
+ * Gabarit de l'espace apprenant (UX-07, UX-11).
+ *
+ * Monté par les six layouts de la zone connectée, qui répétaient chacun
+ * `<AppHeader />`. Les regrouper ici évite qu'ils divergent à la première
+ * retouche.
+ *
+ * Disposition : en-tête en PLEINE LARGEUR au-dessus, barre latérale en dessous
+ * à gauche. L'inverse — barre latérale sur toute la hauteur — aurait exigé un
+ * logo lisible sur Marine, or `logo-germanpass.png` n'existe qu'en version
+ * sombre. Cette disposition évite le problème et reste la plus courante.
+ *
+ * Le décalage `lg:pl-60` ne s'applique qu'au point de rupture où la barre
+ * apparaît : en dessous, le contenu reprend toute la largeur.
+ */
+export function LearnerShell({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <AppHeader />
+      <LearnerSidebar />
+      <div className="lg:pl-60">{children}</div>
+    </>
+  );
+}
