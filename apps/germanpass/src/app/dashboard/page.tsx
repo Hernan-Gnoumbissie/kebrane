@@ -129,15 +129,20 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1",
-              isExpiring && "border-warning/40 bg-warning/10 font-medium"
-            )}
-          >
-            <Clock aria-hidden="true" className="h-3.5 w-3.5" />
-            {daysLeft ?? "—"} jours d&apos;accès
-          </span>
+          {/* Pas d'échéance = pas de badge. Il affichait « — jours d'accès »,
+              ce qui ne veut rien dire ; c'est le cas des comptes sans date
+              d'expiration, dont les administrateurs. */}
+          {daysLeft !== null ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1",
+                isExpiring && "border-warning/40 bg-warning/10 font-medium"
+              )}
+            >
+              <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+              {daysLeft} jour{daysLeft > 1 ? "s" : ""} d&apos;accès
+            </span>
+          ) : null}
           {p.target.provider || p.target.level ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1">
               <Target aria-hidden="true" className="h-3.5 w-3.5" />

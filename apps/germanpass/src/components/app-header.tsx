@@ -2,9 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
-import { LogoutButton } from "@/components/logout-button";
 import { MobileNav } from "@/components/mobile-nav";
-import { NavLinks } from "@/components/nav-links";
 import { MobileBackButton } from "@/components/mobile-back-button";
 import { Logo } from "@/components/logo";
 import { ByKebrane } from "@kebrane/ui";
@@ -67,13 +65,12 @@ export async function AppHeader() {
         </Link>
 
         {/* ── Navigation desktop ── */}
-        {/* Masquée à partir de `lg` : la barre latérale prend le relais et
-            afficher les deux serait une navigation en double. */}
-        <nav className="hidden md:flex lg:hidden items-center gap-0.5 flex-wrap flex-1">
-          <NavLinks nav={nav} />
-        </nav>
-
-        <span className="flex-1 md:hidden" />
+        {/* Plus de navigation horizontale. Il y avait TROIS navigations selon
+            la largeur — burger, liens horizontaux, barre latérale — donc trois
+            apparences pour une même application. Il n'en reste deux : la barre
+            latérale à partir de `lg`, le menu burger en dessous, et le burger
+            reprend exactement les mêmes sections. */}
+        <span className="flex-1" />
 
         {/* ── Bonjour [Prénom] + actions desktop ── */}
         <div className="hidden md:flex items-center gap-2">
@@ -96,7 +93,6 @@ export async function AppHeader() {
               Administration
             </Link>
           ) : null}
-          <LogoutButton />
         </div>
 
         {/* ── Menu burger mobile ── */}

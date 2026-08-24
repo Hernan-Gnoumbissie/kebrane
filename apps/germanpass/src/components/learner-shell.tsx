@@ -13,15 +13,14 @@ import { LearnerSidebar } from "@/components/learner-sidebar";
  * logo lisible sur Marine, or `logo-germanpass.png` n'existe qu'en version
  * sombre. Cette disposition évite le problème et reste la plus courante.
  *
- * Le décalage `lg:pl-60` ne s'applique qu'au point de rupture où la barre
- * apparaît : en dessous, le contenu reprend toute la largeur.
+ * La barre ENVELOPPE le contenu : le décalage de la zone principale doit
+ * suivre sa largeur, qui change quand on la replie.
  */
 export function LearnerShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppHeader />
-      <LearnerSidebar />
-      <div className="lg:pl-60">{children}</div>
+      <LearnerSidebar>{children}</LearnerSidebar>
     </>
   );
 }
