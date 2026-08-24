@@ -1350,6 +1350,42 @@ Le `test.fixme` de l'examen blanc pointe désormais vers **KB-36** : il ne pourr
 
 ---
 
+### KB-38 · Mini-lot de contenu de démo A1 (débloque KB-36)
+**P2 · M · dépend de : pipeline de génération GermanPass, un accès admin + clé IA** — **Statut : à faire**
+
+**But :** peupler la base avec le **strict minimum pour remplir chaque écran une fois**,
+afin de débloquer les captures de la vitrine (KB-36) — **pas** la bibliothèque complète.
+Sous-ensemble tiré du blueprint `apps/germanpass/docs/17-CURRICULUM-A1-GOETHE.md`.
+
+**Périmètre du mini-lot (≈ 5–8 % du pilote A1) :**
+- [ ] **1 Kapitel GRAMMAIRE** complet (ex. G1 « Alphabet, sons & nombres ») : 3 leçons +
+      ~8 exercices + mini-test (`isChapterTest`) → remplit leçon, exercices, progression.
+- [ ] **1 Kapitel VOCABULAIRE** (ex. V1 « Person & Familie ») + son **VocabDeck** (~40
+      flashcards) → remplit l'écran flashcards/SRS.
+- [ ] **1 Kapitel REDEMITTEL** (ex. R1 « Sich vorstellen ») : 2 leçons + 6 exercices.
+- [ ] **Lesen** : 3 passages (1 par Teil). **Hören** : 2 passages avec **audio TTS**.
+- [ ] **1 sujet Schreiben** + **1 tâche Sprechen** → remplit `/practice/schreiben` et `/sprechen`.
+- [ ] **1 examen blanc A1** complet (le modèle du blueprint) → remplit `/exams`.
+- [ ] **1 tentative de démo** (`Attempt`) déjà terminée → remplit `/progress` avec un rapport.
+
+**Prérequis (sinon KB-38 est bloqué) :** app GermanPass qui tourne (local OU déployée),
+**accès admin**, et une **clé + un petit budget IA** pour la génération. Décisions minimales
+de la section 9 du blueprint, en version réduite : petit budget, **une** voix TTS (variété
+au choix), **helpFr seul** suffit pour la démo, et **relecture rapide** (le contenu de démo
+n'a pas à être parfait, mais ne doit contenir aucune faute visible sur une capture).
+
+**Chaîne d'exécution :** générer via le pipeline (`/api/admin/lessons/generate`,
+`generation.ts`) → statut DRAFT → relecture rapide → PUBLISHED → captures Playwright (KB-36).
+
+**Acceptation** : chaque écran vitrine (`/exams`, `/practice/schreiben`, `/practice/sprechen`,
+`/progress`, une leçon) rend un état **plein et crédible** ; KB-36 peut produire ses captures.
+**Fichiers** : contenu en base (via admin) ; aucun code produit attendu.
+
+**⚠ À ne pas confondre** avec la **production complète** (les 6 niveaux, avec valideur
+germanophone) : c'est un chantier distinct, plus lourd, pour le vrai lancement.
+
+---
+
 ## Statut synthétique (23 août 2026)
 - **Faits** : KB-01, KB-02, KB-03 (Phase 1) · KB-05, KB-06, KB-07 (Phase 2) · **KB-08, KB-09, KB-10 [code], KB-11 (Phase 3)** · **KB-17, KB-19, KB-18, KB-20, KB-12 [socle ; composants à poursuivre]**.
 - **Faits (suite)** : **KB-13** (billing, offres, paywall, admin des offres) · **KB-14** (catalogue d'événements + notifications) · **KB-15** (console d'administration + 2FA) · **KB-16** (vitrine publique) · **KB-21** (préparation production).
@@ -1375,3 +1411,45 @@ Le `test.fixme` de l'examen blanc pointe désormais vers **KB-36** : il ne pourr
 - **Bloqués côté PO, pas côté code** : 3 vérifications KPay → adaptateur PSP (KB-13) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13). *(Hébergement/Postgres prod : tranché — IONOS auto-géré, 22 août 2026.)*
 - **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay (KB-13) · accent officiel GermanPass (KB-02/09) · confirmation topologie domaines (KB-10/21). *(Grille tarifaire → éditable en admin, KB-34 ; PostgreSQL prod → IONOS, tranché.)*
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
+
+### KB-39 · Session héritée de next-auth : tout l'espace admin inaccessible
+**P1 · S · dépend de : —** — **Statut : contourné en local, NON corrigé dans le code**
+
+Symptôme : cliquer sur « Administration » recharge la page et **retombe sur
+`/dashboard`**. Aucun message d'erreur. Reproductible pour tout compte migré.
+
+**Mécanisme.** `requireUser()` (`src/lib/guards.ts`) porte un contrôle anti-partage :
+
+```js
+if (user.activeSessionId && session.user.sid && user.activeSessionId !== session.user.sid)
+  throw new GuardError(401, "SESSION_REVOKED", …)
+```
+
+Or `activeSessionId` contenait encore un **UUID hérité de next-auth**
+(`ab140c09-2b8b-4a00-af51-806dad78db84`), tandis que Clerk émet des identifiants
+préfixés `sess_`. Les deux ne peuvent **jamais** être égaux → 401 à chaque requête
+gardée.
+
+L'enchaînement qui masque la cause :
+
+1. `/admin` → `requireAdmin()` → **401**
+2. `src/app/admin/layout.tsx:16` → `redirect("/login")`
+3. `/login` monte `<SignIn fallbackRedirectUrl="/dashboard" />` — Clerk voit une
+   session **valide** et redirige aussitôt
+4. → retour au **dashboard**, en une fraction de seconde
+
+**Pourquoi ça passait inaperçu** : `/dashboard` appelle `auth()` directement et ne
+passe pas par les guards. Seules les zones gardées tombaient — `/admin` **et toutes
+les routes API admin**, ce qui bloque aussi KB-38.
+
+- [x] Contournement local : purge des `activeSessionId` qui ne commencent pas par
+      `sess_`.
+- [ ] **Corriger le code** : la garde doit ignorer une valeur qui n'est pas au format
+      Clerk, plutôt que de la traiter comme une session concurrente. Un test de format
+      (`startsWith("sess_")`) suffit.
+- [ ] **Migration** : purger la colonne pour tous les comptes migrés, en production
+      comme en local.
+- [ ] Vérifier que le webhook Clerk `session.created` alimente bien `activeSessionId` —
+      s'il n'est pas joignable, l'anti-partage ne protège rien et ne fait que casser.
+
+**Fichiers** : `apps/germanpass/src/lib/guards.ts`, `src/app/admin/layout.tsx`.
