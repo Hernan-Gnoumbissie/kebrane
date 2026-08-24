@@ -38,6 +38,10 @@ export function ScoreLineChart({ data }: { data: { date: string; pct: number }[]
   const area = `${x(0)},${h - pad} ${pts} ${x(n - 1)},${h - pad}`;
 
   return (
+    // Zone de trace teintee : detache le graphique du fond de la carte. Reprise
+    // de l'ecran d'administration, mais en `bg-muted` plutot qu'en `bg-slate-50`
+    // code en dur — la teinte suit ainsi le mode sombre.
+    <div className="rounded-lg bg-muted/40 p-3">
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label="Évolution des scores">
       {[0, 25, 50, 75, 100].map((g) => (
         <g key={g}>
@@ -77,6 +81,7 @@ export function ScoreLineChart({ data }: { data: { date: string; pct: number }[]
         </g>
       ))}
     </svg>
+    </div>
   );
 }
 

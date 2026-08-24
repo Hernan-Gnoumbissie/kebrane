@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  ArrowRight,
   BookOpen,
   Check,
   ClipboardList,
@@ -259,13 +260,30 @@ export default async function DashboardPage({
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                Évolution de mes scores
-              </CardTitle>
-              <CardDescription>
-                {recentHistory.length} dernière(s) session(s) — ligne verte : seuil de réussite (60 %).
-              </CardDescription>
+              {/* Titre, sous-titre et lien d'action : les trois détails qui
+                  donnaient à l'écran d'administration son air fini. Le lien
+                  transforme un graphique en point de départ plutôt qu'en
+                  cul-de-sac. */}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                    Évolution de mes scores
+                  </CardTitle>
+                  <CardDescription>
+                    {recentHistory.length} dernière{recentHistory.length > 1 ? "s" : ""} session
+                    {recentHistory.length > 1 ? "s" : ""} — le pointillé marque le seuil de
+                    réussite (60 %).
+                  </CardDescription>
+                </div>
+                <Link
+                  href="/progress"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  Ma progression
+                  <ArrowRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
               {recentHistory.length > 0 ? (
@@ -278,11 +296,24 @@ export default async function DashboardPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Target aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                Réussite par compétence
-              </CardTitle>
-              <CardDescription>Sur vos dernières réponses corrigées.</CardDescription>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Target aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                    Réussite par compétence
+                  </CardTitle>
+                  <CardDescription>
+                    Sur vos dernières réponses corrigées — vert au-dessus de 60 %.
+                  </CardDescription>
+                </div>
+                <Link
+                  href="/practice"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  S&apos;entraîner
+                  <ArrowRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
               {p.sections.length > 0 ? (
@@ -330,11 +361,24 @@ export default async function DashboardPage({
       {p.formats.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Puzzle aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-              Par type de tâche
-            </CardTitle>
-            <CardDescription>Du plus faible au plus fort (minimum 5 réponses).</CardDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Puzzle aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  Par type de tâche
+                </CardTitle>
+                <CardDescription>
+                  Du plus faible au plus fort — les premiers sont ceux à travailler.
+                </CardDescription>
+              </div>
+              <Link
+                href="/practice"
+                className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                S&apos;entraîner
+                <ArrowRight aria-hidden="true" className="h-3 w-3" />
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {p.formats.slice(0, 6).map((f) => (
