@@ -9,11 +9,12 @@ import { LogoutButton } from "@/components/logout-button";
 import { Logo } from "@/components/logo";
 import { KEBRANE_HUB_URL } from "@/lib/platform";
 
-import type { SectionNav } from "@/lib/navigation-apprenant";
+import { sectionsApprenant, type DroitsNav } from "@/lib/navigation-apprenant";
 
 interface MobileNavProps {
-  /** Mêmes sections que la barre latérale — source unique (UX-11). */
-  sections: SectionNav[];
+  /** Booleens, pas les sections construites : celles-ci portent des composants
+   *  d'icone que React ne peut pas serialiser vers un composant client. */
+  droits: DroitsNav;
   isAdmin: boolean;
   /** Prénom de l'utilisateur connecté (premier mot du name) */
   firstName?: string | null;
@@ -21,7 +22,8 @@ interface MobileNavProps {
 
 /** Menu hamburger mobile — composant client isolé pour garder AppHeader en server component.
  *  Utilise un portal React pour éviter les conflits sticky/fixed sur iOS Safari. */
-export function MobileNav({ sections, isAdmin, firstName }: MobileNavProps) {
+export function MobileNav({ droits, isAdmin, firstName }: MobileNavProps) {
+  const sections = sectionsApprenant(droits);
   const [open, setOpen]       = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname              = usePathname();

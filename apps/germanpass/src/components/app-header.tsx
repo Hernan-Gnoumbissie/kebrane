@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
-import { sectionsApprenant } from "@/lib/navigation-apprenant";
 import { MobileBackButton } from "@/components/mobile-back-button";
 import { Logo } from "@/components/logo";
 import { ByKebrane } from "@kebrane/ui";
@@ -28,10 +27,6 @@ export async function AppHeader() {
     isAdmin      = user?.role === "ADMIN";
     examPrepOnly = !isAdmin && user?.plan === "EXAM_PREP";
   }
-
-  // Même source que la barre latérale : le menu burger doit montrer la même
-  // application. Les deux listes avaient diverge — voir lib/navigation-apprenant.
-  const sections = sectionsApprenant({ isAdmin, examPrepOnly });
 
   return (
     <>
@@ -87,7 +82,7 @@ export async function AppHeader() {
         </div>
 
         {/* ── Menu burger mobile ── */}
-        <MobileNav sections={sections} isAdmin={isAdmin} firstName={firstName} />
+        <MobileNav droits={{ isAdmin, examPrepOnly }} isAdmin={isAdmin} firstName={firstName} />
       </div>
     </header>
 

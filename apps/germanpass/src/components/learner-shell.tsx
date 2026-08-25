@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { AppHeader } from "@/components/app-header";
 import { LearnerSidebar } from "@/components/learner-sidebar";
-import { sectionsApprenant } from "@/lib/navigation-apprenant";
 
 /**
  * Gabarit de l'espace apprenant (UX-07, UX-11).
@@ -38,7 +37,7 @@ export async function LearnerShell({ children }: { children: React.ReactNode }) 
   return (
     <>
       <AppHeader />
-      <LearnerSidebar sections={sectionsApprenant({ isAdmin, examPrepOnly })}>
+      <LearnerSidebar droits={{ isAdmin, examPrepOnly }}>
         {children}
       </LearnerSidebar>
     </>

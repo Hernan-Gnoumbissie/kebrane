@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { cn } from "@/lib/utils";
-import type { EntreeNav, SectionNav } from "@/lib/navigation-apprenant";
+import { sectionsApprenant, type DroitsNav, type EntreeNav } from "@/lib/navigation-apprenant";
 
 /**
  * Barre latérale de l'espace apprenant (UX-07, UX-11).
@@ -67,12 +67,19 @@ function Lien({ entree, ouverte }: { entree: EntreeNav; ouverte: boolean }) {
 }
 
 export function LearnerSidebar({
-  sections,
+  droits,
   children,
 }: {
-  sections: SectionNav[];
+  /** On passe des BOOLEENS, pas les sections construites (UX-11).
+   *
+   * Les sections contiennent des composants d'icone, donc des FONCTIONS, et
+   * React ne sait pas les serialiser d'un composant serveur vers un composant
+   * client — « Functions cannot be passed directly to Client Components ».
+   * Le typecheck ne voit pas cette frontiere ; seule l'execution la revele. */
+  droits: DroitsNav;
   children: React.ReactNode;
 }) {
+  const sections = sectionsApprenant(droits);
   // Ouverte par défaut, puis alignée sur la préférence mémorisée. Lire le
   // stockage dans un effet plutôt qu'à l'initialisation évite que le serveur et
   // le client rendent deux largeurs différentes.
