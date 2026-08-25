@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Select } from "@/components/ui/select";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { LevelSelector } from "@/components/LevelSelector";
+import { TASK_FORMAT_LABELS } from "@/lib/content-enums";
 import { cn } from "@/lib/utils";
 
 type SanQuestion = {
@@ -30,6 +31,20 @@ type Session = {
   attemptId: string;
   passage: { id: string; title: string; body: string | null; audioUrl: string | null; maxListens: number };
   questions: SanQuestion[];
+};
+
+/** Une entrée du catalogue, historique du candidat compris. */
+type Sujet = {
+  id: string;
+  title: string;
+  taskFormat: string;
+  situation: string | null;
+  questionCount: number;
+  dureeSecondes: number | null;
+  maxListens: number;
+  locuteurs: number | null;
+  essais: { pct: number; date: string }[];
+  meilleurScore: number | null;
 };
 
 type ResultRow = {
@@ -88,6 +103,9 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
   const [targetLevel, setTargetLevel] = useState<string | null>(null);
   const [currentLevel, setCurrentLevel] = useState<string | null>(null);
   const [unlockedLevel, setUnlockedLevel] = useState<string | null>(null);
+  const [sujets, setSujets] = useState<Sujet[]>([]);
+  const [chargementCatalogue, setChargementCatalogue] = useState(false);
+  const [errCatalogue, setErrCatalogue] = useState<string | null>(null);
 
   // Objectif déclaré : niveau par défaut + signalement des niveaux hors objectif.
   useEffect(() => {
@@ -106,7 +124,35 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
       .catch(() => undefined);
   }, []);
 
-  async function start() {
+  // Catalogue des sujets du niveau courant. Rechargé à chaque changement de
+  // niveau, et après chaque correction pour que les scores affichés soient
+  // ceux qu'on vient d'obtenir.
+  const chargerCatalogue = useCallback(async () => {
+    setChargementCatalogue(true);
+    setErrCatalogue(null);
+    try {
+      const res = await fetch(`/api/practice/passages?section=${section}&level=${level}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSujets([]);
+        setErrCatalogue(data.error?.message ?? "Catalogue indisponible");
+        return;
+      }
+      setSujets((data as { passages: Sujet[] }).passages);
+    } catch {
+      setSujets([]);
+      setErrCatalogue("Catalogue indisponible");
+    } finally {
+      setChargementCatalogue(false);
+    }
+  }, [section, level]);
+
+  useEffect(() => {
+    void chargerCatalogue();
+  }, [chargerCatalogue]);
+
+  /** `passageId` absent = tirage aléatoire, comportement historique conservé. */
+  async function start(passageId?: string) {
     setBusy(true);
     setErr(null);
     setResults(null);
@@ -114,7 +160,7 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
     const res = await fetch("/api/practice/attempts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ section, level }),
+      body: JSON.stringify({ section, level, ...(passageId ? { passageId } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -164,6 +210,9 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
       return;
     }
     setResults({ pct: data.score.pct, rows: data.results });
+    // Le catalogue doit refléter l'essai qu'on vient de faire : sans ce
+    // rechargement, revenir à la liste montrerait le score d'avant.
+    void chargerCatalogue();
     // Notification de déblocage de niveau
     if (data.levelUnlocked?.unlocked && data.levelUnlocked?.newLevel) {
       setUnlockedLevel(data.levelUnlocked.newLevel as string);
@@ -376,10 +425,31 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
                 onChange={(l) => setLevel(l as Level)}
               />
             </div>
-            <Button onClick={() => void start()} disabled={busy} className="h-11">
-              {busy ? "Chargement..." : "Démarrer"}
+            <Button
+              variant="outline"
+              onClick={() => void start()}
+              disabled={busy || sujets.length === 0}
+              className="h-11"
+            >
+              {busy ? "Chargement..." : "Sujet au hasard"}
             </Button>
             </div>
+
+            {/* Le catalogue remplace le bouton aveugle. Auparavant « Démarrer »
+                tirait un sujet au sort : le candidat ne savait ni ce qu'il
+                allait travailler, ni s'il l'avait déjà fait, ni comment il
+                s'en était sorti. Refaire un sujet raté était impossible — or
+                c'est précisément ce que fait quelqu'un qui prépare un examen.
+                Le tirage aléatoire reste offert, mais comme un choix, pas
+                comme seule porte d'entrée. */}
+            <CatalogueSujets
+              sujets={sujets}
+              chargement={chargementCatalogue}
+              erreur={errCatalogue}
+              busy={busy}
+              section={section}
+              onDemarrer={(id) => void start(id)}
+            />
           </CardContent>
         </Card>
         )
@@ -528,5 +598,130 @@ function OrderingWidget({
         );
       })}
     </ol>
+  );
+}
+
+/** Seuil de réussite d'un entraînement — le même que partout ailleurs. */
+const SEUIL = 70;
+
+function formatDuree(secondes: number | null): string | null {
+  if (secondes === null) return null;
+  const m = Math.floor(secondes / 60);
+  const s = Math.round(secondes % 60);
+  return m > 0 ? `${m} min ${String(s).padStart(2, "0")}` : `${s} s`;
+}
+
+/**
+ * Catalogue des sujets, avec pour chacun l'historique du candidat.
+ *
+ * Montrer TOUS les essais et pas seulement le meilleur est délibéré : c'est la
+ * suite qui dit s'il y a progrès. Un « 85 % » isolé ne distingue pas celui qui
+ * a réussi du premier coup de celui qui a recommencé quatre fois — et cette
+ * différence est exactement ce qu'un candidat veut voir sur lui-même.
+ */
+function CatalogueSujets({
+  sujets,
+  chargement,
+  erreur,
+  busy,
+  section,
+  onDemarrer,
+}: {
+  sujets: Sujet[];
+  chargement: boolean;
+  erreur: string | null;
+  busy: boolean;
+  section: SectionEntrainement;
+  onDemarrer: (id: string) => void;
+}) {
+  if (chargement) {
+    return <p className="text-sm text-muted-foreground">Chargement des sujets…</p>;
+  }
+  if (erreur) {
+    return <p className="text-sm text-destructive">{erreur}</p>;
+  }
+  if (sujets.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Aucun sujet publié à ce niveau pour le moment.
+        {section === "HOEREN" ? " Un exercice Hören n'apparaît qu'une fois son audio généré." : ""}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">
+        {sujets.length} sujet{sujets.length > 1 ? "s" : ""} disponible
+        {sujets.length > 1 ? "s" : ""}
+      </p>
+      <ul className="divide-y rounded-md border">
+        {sujets.map((s) => {
+          const fait = s.essais.length > 0;
+          const reussi = s.meilleurScore !== null && s.meilleurScore >= SEUIL;
+          const duree = formatDuree(s.dureeSecondes);
+          return (
+            <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-medium">{s.title}</span>
+                  {fait ? (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                        reussi ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {reussi ? <Check aria-hidden="true" className="h-3 w-3" /> : null}
+                      {s.meilleurScore} %
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {/* La situation en clair — « Eine Durchsage im Zug » dit ce
+                      qu'on va écouter, la clé technique ne dit rien. */}
+                  {[
+                    s.situation,
+                    TASK_FORMAT_LABELS[s.taskFormat] ?? null,
+                    s.locuteurs && s.locuteurs > 1 ? `${s.locuteurs} voix` : null,
+                    duree,
+                    `${s.questionCount} question${s.questionCount > 1 ? "s" : ""}`,
+                    section === "HOEREN"
+                      ? `${s.maxListens} écoute${s.maxListens > 1 ? "s" : ""}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                {s.essais.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {s.essais.length} essai{s.essais.length > 1 ? "s" : ""} :{" "}
+                    {s.essais.map((e, i) => (
+                      <span key={e.date}>
+                        {i > 0 ? " → " : ""}
+                        <span
+                          className={cn(e.pct >= SEUIL ? "text-success" : undefined)}
+                          title={new Date(e.date).toLocaleString("fr-FR")}
+                        >
+                          {e.pct} %
+                        </span>
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                size="sm"
+                variant={fait ? "outline" : "default"}
+                disabled={busy}
+                onClick={() => onDemarrer(s.id)}
+              >
+                {fait ? "Refaire" : "Commencer"}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
