@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Check, CheckCircle2, Circle, CircleDot, Lock, WifiOff } from "lucide-react";
+import { Check, CheckCircle2, Circle, CircleDot, Clock, Lock, WifiOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,28 @@ import { ChoiceCard } from "@/components/ui/choice-card";
 import { SyncIndicator } from "@/components/SyncIndicator";
 import { useOffline } from "@/hooks/useOffline";
 import { saveCards, getOfflineCards, addPendingReview, type OfflineCard } from "@/lib/offline-db";
+import { cn } from "@/lib/utils";
+
+type Lecon = {
+  id: string;
+  title: string;
+  estTestChapitre: boolean;
+  /** Calculé côté serveur (UX-08) — le client ne décide pas de ce qui est ouvert. */
+  deverrouillee: boolean;
+  complete: boolean;
+  minutesAvantNouvelleTentative: number;
+  progress: { status: string; bestScore: number | null };
+};
 
 type Course = {
   id: string;
   level: string;
   kind: string;
   title: string;
-  lessons: { id: string; title: string; progress: { status: string; bestScore: number | null } }[];
+  /** Avancement du chapitre en % — le « abgeschlossen » du Moodle de référence. */
+  progression: number;
+  franchi: boolean;
+  lessons: Lecon[];
 };
 
 type LessonView = {
@@ -35,6 +50,10 @@ type LessonView = {
     isChapterTest: boolean;
     clientMetadata: Record<string, unknown> | null;
   }[];
+  /** Suivi par activité (UX-08) — calculé côté serveur. */
+  activitesTerminees: string[];
+  activitesAttendues: string[];
+  exercicesAccessibles: boolean;
 };
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -293,35 +312,80 @@ export default function LearnPage() {
                     {KIND_LABEL[c.kind] ?? c.kind} · {c.level}
                   </span>
                 </CardTitle>
+                {/* Avancement du chapitre : le chiffre ET la barre. La barre
+                    seule se lit mal en dessous de 10 %, le chiffre seul ne se
+                    compare pas d'un coup d'œil entre chapitres. */}
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        c.franchi ? "bg-success" : "bg-primary"
+                      )}
+                      style={{ width: `${c.progression}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {c.progression} % terminé
+                  </span>
+                </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1">
-                  {c.lessons.map((l) => (
-                    <li key={l.id} className="flex items-center justify-between text-sm">
-                      <button
-                        className="text-left underline-offset-2 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => !isOffline && void openLesson(l.id)}
-                        disabled={isOffline}
-                        title={isOffline ? "Connexion requise" : undefined}
-                      >
-                        {/* Trois états, trois icônes distinctes de FORME (pas
-                            seulement de couleur) : cercle coché, cercle en
-                            cours, cercle vide. */}
-                        {l.progress.status === "COMPLETED" ? (
-                          <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-success" />
-                        ) : l.progress.status === "IN_PROGRESS" ? (
-                          <CircleDot aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />
-                        ) : (
-                          <Circle aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        )}
-                        {l.title}
-                        {isOffline && <span className="ml-1 text-xs text-warning">(hors ligne)</span>}
-                      </button>
-                      {l.progress.bestScore !== null ? (
-                        <span className="text-muted-foreground">{l.progress.bestScore} %</span>
-                      ) : null}
-                    </li>
-                  ))}
+                  {c.lessons.map((l) => {
+                    const verrouillee = !l.deverrouillee;
+                    // Verrouillee OU hors ligne : deux raisons distinctes de ne
+                    // pas pouvoir ouvrir, et l'infobulle dit laquelle. Un bouton
+                    // grise sans explication est le pire des deux mondes.
+                    const raison = verrouillee
+                      ? "Terminez la leçon précédente pour débloquer celle-ci"
+                      : isOffline
+                        ? "Connexion requise"
+                        : undefined;
+
+                    return (
+                      <li key={l.id} className="flex items-center justify-between gap-3 text-sm">
+                        <button
+                          className="flex items-center gap-2 text-left underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
+                          onClick={() => !isOffline && !verrouillee && void openLesson(l.id)}
+                          disabled={isOffline || verrouillee}
+                          title={raison}
+                        >
+                          {/* Quatre états, quatre FORMES distinctes — jamais la
+                              couleur seule : cadenas, cercle coché, cercle en
+                              cours, cercle vide. */}
+                          {verrouillee ? (
+                            <Lock aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          ) : l.complete ? (
+                            <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-success" />
+                          ) : l.progress.status === "IN_PROGRESS" ? (
+                            <CircleDot aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />
+                          ) : (
+                            <Circle aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span>{l.title}</span>
+                          {l.estTestChapitre ? (
+                            <span className="rounded-full border border-border px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
+                              Test
+                            </span>
+                          ) : null}
+                          {isOffline && <span className="text-xs text-warning">(hors ligne)</span>}
+                        </button>
+
+                        <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                          {/* On annonce le temps restant plutôt que de refuser
+                              en silence — le délai sert à relire, pas à punir. */}
+                          {l.minutesAvantNouvelleTentative > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-warning">
+                              <Clock aria-hidden="true" className="h-3 w-3" />
+                              {l.minutesAvantNouvelleTentative} min
+                            </span>
+                          ) : null}
+                          {l.progress.bestScore !== null ? <span>{l.progress.bestScore} %</span> : null}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardContent>
             </Card>
@@ -407,6 +471,26 @@ function LessonRunner({
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Etat local des activites : le serveur reste l'autorite, mais l'interface
+  // doit reagir au clic sans recharger toute la lecon.
+  const [faites, setFaites] = useState<string[]>(lesson.activitesTerminees);
+
+  const attendAudio = lesson.activitesAttendues.includes("AUDIO");
+  const contenuFait = faites.includes("CONTENU");
+  const audioFait = faites.includes("AUDIO");
+  const exercicesOuverts = contenuFait && (!attendAudio || audioFait);
+
+  async function marquer(activite: "CONTENU" | "AUDIO") {
+    const res = await fetch(`/api/learn/lessons/${lesson.lesson.id}/activite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ activite }),
+    });
+    if (res.ok) {
+      const d = (await res.json()) as { activitesTerminees: string[] };
+      setFaites(d.activitesTerminees);
+    }
+  }
 
   async function submit() {
     setBusy(true);
@@ -456,6 +540,42 @@ function LessonRunner({
             </details>
           ) : null}
         </CardContent>
+        {/* Déclaration explicite, comme les cases « Erledigt » de Moodle : on ne
+            déduit pas d'une page affichée qu'elle a été lue. */}
+        <CardContent className="flex flex-wrap items-center gap-2 border-t pt-4">
+          <Button
+            variant={contenuFait ? "outline" : "default"}
+            size="sm"
+            onClick={() => void marquer("CONTENU")}
+            disabled={contenuFait}
+          >
+            {contenuFait ? (
+              <>
+                <Check aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                Leçon lue
+              </>
+            ) : (
+              "J'ai lu cette leçon"
+            )}
+          </Button>
+          {attendAudio ? (
+            <Button
+              variant={audioFait ? "outline" : "default"}
+              size="sm"
+              onClick={() => void marquer("AUDIO")}
+              disabled={audioFait}
+            >
+              {audioFait ? (
+                <>
+                  <Check aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                  Audio écouté
+                </>
+              ) : (
+                "J'ai écouté l'audio"
+              )}
+            </Button>
+          ) : null}
+        </CardContent>
       </Card>
 
       {lesson.exercises.length > 0 ? (
@@ -464,11 +584,25 @@ function LessonRunner({
             <CardTitle className="text-base">Exercices</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Dire POURQUOI c'est fermé, et quoi faire pour l'ouvrir. Un bloc
+                grisé sans explication laisse l'apprenant bloqué sans recours. */}
+            {!exercicesOuverts ? (
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                <Lock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Terminez d&apos;abord la leçon{attendAudio ? " et écoutez l'audio" : ""} pour
+                  accéder aux exercices.
+                </span>
+              </div>
+            ) : null}
             {lesson.exercises.map((ex) => (
               <ExerciseWidget key={ex.id} ex={ex} onChange={(v) => setResponses((r) => ({ ...r, [ex.id]: v }))} />
             ))}
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <Button onClick={() => void submit()} disabled={busy || Object.keys(responses).length === 0}>
+            <Button
+              onClick={() => void submit()}
+              disabled={busy || !exercicesOuverts || Object.keys(responses).length === 0}
+            >
               {busy ? "Correction..." : "Vérifier mes réponses"}
             </Button>
           </CardContent>

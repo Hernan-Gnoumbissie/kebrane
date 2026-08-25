@@ -1,6 +1,13 @@
 import { db } from "@/lib/db";
 import { requireFullPlan, guardErrorResponse } from "@/lib/guards";
 import { LEVEL_ORDER } from "@/lib/level-progression";
+import {
+  activitesAttendues,
+  exercicesAccessibles,
+  type ActiviteLecon,
+  type EtatLecon,
+  type Lecon,
+} from "@/lib/progression-curriculum";
 
 /** Contenu d'une leçon + exercices SANITISÉS (aucune clé de correction). */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
@@ -93,6 +100,23 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       };
     });
 
+    // État des activités : le client en a besoin pour savoir s'il peut ouvrir
+    // les exercices, et pour afficher ce qui reste à faire (UX-08).
+    const activitesFaites = await db.progressionActivite.findMany({
+      where: { userId: user.id, lessonId: lesson.id },
+      select: { activite: true },
+    });
+    const lecon: Lecon = {
+      id: lesson.id,
+      aAudio: Boolean(lesson.audioPath),
+      estTestChapitre: lesson.estTestChapitre,
+    };
+    const etat: EtatLecon = {
+      activitesTerminees: activitesFaites.map((a) => a.activite as ActiviteLecon),
+      meilleurScore: null,
+      prochaineTentativeLe: null,
+    };
+
     // Aide dans la langue native du candidat (repli sur l'autre langue si absente)
     const nativeLang = user.localePref === "en" ? "en" : "fr";
     const helpMd = nativeLang === "en" ? (lesson.helpEn ?? lesson.helpFr) : (lesson.helpFr ?? lesson.helpEn);
@@ -108,6 +132,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         course: lesson.course,
       },
       exercises,
+      activitesTerminees: etat.activitesTerminees,
+      activitesAttendues: activitesAttendues(lecon),
+      exercicesAccessibles: exercicesAccessibles(lecon, etat),
     });
   } catch (e) {
     return guardErrorResponse(e) ?? Response.json({ error: { code: "INTERNAL" } }, { status: 500 });
