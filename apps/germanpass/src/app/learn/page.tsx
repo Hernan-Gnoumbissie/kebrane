@@ -393,8 +393,15 @@ export default function LearnPage() {
         </>
       ) : null}
 
+      {/* On ne quitte plus la leçon à la correction : le résultat s'affiche
+          sur place. Rafraîchir la liste en arrière-plan suffit pour qu'elle
+          soit à jour quand l'apprenant décide, lui, de revenir. */}
       {view === "lesson" && lesson ? (
-        <LessonRunner lesson={lesson} onBack={() => setView("courses")} onDone={(m) => { setMsg(m); setView("courses"); void loadCourses(level); }} />
+        <LessonRunner
+          lesson={lesson}
+          onBack={() => setView("courses")}
+          onTermine={() => void loadCourses(level)}
+        />
       ) : null}
 
       {view === "flashcards" ? (
@@ -459,18 +466,30 @@ export default function LearnPage() {
   );
 }
 
+/** Ce que le serveur renvoie après correction, échéance de révision comprise. */
+type ResultatSoumission = {
+  pctTest: number;
+  threshold: number;
+  chapterValidated: boolean;
+  prochaineTentativeLe: string | null;
+};
+
 function LessonRunner({
   lesson,
   onBack,
-  onDone,
+  onTermine,
 }: {
   lesson: LessonView;
   onBack: () => void;
-  onDone: (msg: string) => void;
+  /** Prévient le parent que la progression a bougé — sans faire quitter la leçon. */
+  onTermine: () => void;
 }) {
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [resultat, setResultat] = useState<ResultatSoumission | null>(null);
+  // Un compte à rebours figé redevient un mensonge au bout d'une minute.
+  const [maintenant, setMaintenant] = useState(() => Date.now());
   // Etat local des activites : le serveur reste l'autorite, mais l'interface
   // doit reagir au clic sans recharger toute la lecon.
   const [faites, setFaites] = useState<string[]>(lesson.activitesTerminees);
@@ -479,6 +498,20 @@ function LessonRunner({
   const contenuFait = faites.includes("CONTENU");
   const audioFait = faites.includes("AUDIO");
   const exercicesOuverts = contenuFait && (!attendAudio || audioFait);
+
+  const minutesAvantEssai = resultat?.prochaineTentativeLe
+    ? Math.max(
+        0,
+        Math.ceil((new Date(resultat.prochaineTentativeLe).getTime() - maintenant) / 60_000)
+      )
+    : 0;
+  const enAttenteDeRevision = minutesAvantEssai > 0;
+
+  useEffect(() => {
+    if (!enAttenteDeRevision) return;
+    const t = setInterval(() => setMaintenant(Date.now()), 20_000);
+    return () => clearInterval(t);
+  }, [enAttenteDeRevision]);
 
   async function marquer(activite: "CONTENU" | "AUDIO") {
     const res = await fetch(`/api/learn/lessons/${lesson.lesson.id}/activite`, {
@@ -507,11 +540,9 @@ function LessonRunner({
       setErr(d.error?.message ?? "Soumission impossible");
       return;
     }
-    onDone(
-      d.score.chapterValidated
-        ? `Chapitre validé ! (${d.score.pctTest} % ≥ ${d.score.threshold} %)`
-        : `Score : ${d.score.pctTest} % — il faut ${d.score.threshold} % pour valider le chapitre. Réessayez !`
-    );
+    setResultat(d.score as ResultatSoumission);
+    setMaintenant(Date.now());
+    onTermine();
   }
 
   return (
@@ -599,11 +630,74 @@ function LessonRunner({
               <ExerciseWidget key={ex.id} ex={ex} onChange={(v) => setResponses((r) => ({ ...r, [ex.id]: v }))} />
             ))}
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
+
+            {/* Le résultat s'affiche ICI, la leçon toujours à l'écran.
+                Auparavant la correction renvoyait d'office à la liste des
+                chapitres : on ne relisait pas son score dans son contexte, et
+                surtout, en cas d'échec, le message disait « Réessayez ! » alors
+                que le serveur venait de poser un délai de révision. La leçon
+                reste affichée parce que la relire est précisément ce que le
+                délai demande. */}
+            {resultat ? (
+              <div
+                role="status"
+                className={cn(
+                  "space-y-2 rounded-md border p-3 text-sm",
+                  resultat.chapterValidated
+                    ? "border-success/40 bg-success/10"
+                    : "border-border bg-muted/40"
+                )}
+              >
+                <p className="font-medium text-foreground">
+                  {resultat.chapterValidated ? (
+                    <>
+                      <Check aria-hidden="true" className="mr-1.5 inline h-4 w-4 text-success" />
+                      Réussi — {resultat.pctTest} % (seuil : {resultat.threshold} %)
+                    </>
+                  ) : (
+                    <>
+                      {resultat.pctTest} % — il en faut {resultat.threshold} %.
+                    </>
+                  )}
+                </p>
+                {resultat.chapterValidated ? (
+                  <p className="text-muted-foreground">
+                    Vous pouvez relire la leçon, ou passer à la suite.
+                  </p>
+                ) : enAttenteDeRevision ? (
+                  <p className="flex items-start gap-1.5 text-muted-foreground">
+                    <Clock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Reprenez la leçon ci-dessus : un nouvel essai sera possible dans{" "}
+                      {minutesAvantEssai} min.
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Le délai de révision est écoulé, vous pouvez retenter.
+                  </p>
+                )}
+                <Button variant="outline" size="sm" onClick={onBack}>
+                  Retour aux chapitres
+                </Button>
+              </div>
+            ) : null}
+
             <Button
               onClick={() => void submit()}
-              disabled={busy || !exercicesOuverts || Object.keys(responses).length === 0}
+              disabled={
+                busy ||
+                !exercicesOuverts ||
+                enAttenteDeRevision ||
+                resultat?.chapterValidated === true ||
+                Object.keys(responses).length === 0
+              }
             >
-              {busy ? "Correction..." : "Vérifier mes réponses"}
+              {busy
+                ? "Correction..."
+                : resultat
+                  ? "Vérifier à nouveau"
+                  : "Vérifier mes réponses"}
             </Button>
           </CardContent>
         </Card>

@@ -188,18 +188,27 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       create: { userId: user.id, lessonId: lesson.id, activite: "EXERCICES" },
     });
 
+    const prochaineTentativeLe = completed ? null : prochaineTentativeApresEchec(maintenant);
     // Échec : on pose l'échéance de révision. Réussite : on la lève, sinon un
     // délai pose lors d'une tentative precedente survivrait a la reussite.
     await db.lessonProgress.update({
       where: { userId_lessonId: { userId: user.id, lessonId: lesson.id } },
       data: {
-        prochaineTentativeLe: completed ? null : prochaineTentativeApresEchec(maintenant),
+        prochaineTentativeLe,
       },
     });
 
     return Response.json({
       ok: true,
-      score: { pctTotal, pctTest, threshold: CHAPTER_PASS_THRESHOLD, chapterValidated: completed },
+      score: {
+        pctTotal,
+        pctTest,
+        threshold: CHAPTER_PASS_THRESHOLD,
+        chapterValidated: completed,
+        // L'echeance voyage avec le score : sans elle le client ne peut que
+        // dire « Reessayez », alors que la regle vient d'interdire l'essai.
+        prochaineTentativeLe: prochaineTentativeLe?.toISOString() ?? null,
+      },
       results,
     });
   } catch (e) {
