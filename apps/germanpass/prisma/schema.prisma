@@ -199,6 +199,7 @@ model User {
   writingSubmissions WritingSubmission[]
   speakingSubmissions SpeakingSubmission[]
   lessonProgress     LessonProgress[]
+  progressionActivites ProgressionActivite[]
   flashcardReviews   FlashcardReview[]
   levelMastery       LevelMastery[]
   documentsUploaded  Document[]          @relation("uploadedBy")
@@ -739,13 +740,19 @@ model Lesson {
   helpEn    String? // aide pédagogique en anglais (repliable, à la demande)
   audioPath String?
   position  Int      @default(0)
+  /// Cette lecon EST le test de fin de chapitre (UX-08). Placee en derniere
+  /// position du cours, elle conditionne le passage au chapitre suivant.
+  /// Modelisee comme une lecon plutot que comme un objet a part : elle reutilise
+  /// ainsi le contenu, la notation et le suivi de progression deja en place.
+  estTestChapitre Boolean @default(false)
   status    ContentStatus @default(DRAFT)
   sourceOrigin SourceOrigin @default(MANUAL)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  exercises LessonExercise[]
-  progress  LessonProgress[]
+  exercises  LessonExercise[]
+  progress   LessonProgress[]
+  activites  ProgressionActivite[]
 
   @@index([courseId, position])
   @@map("lessons")
@@ -777,8 +784,13 @@ model LessonProgress {
   lessonId    String
   lesson      Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   status      LessonProgressStatus @default(NOT_STARTED)
-  bestScore   Float? // % au mini-test
+  bestScore   Float? // % au bloc d'exercices
   completedAt DateTime?
+  /// Apres un echec, l'apprenant revoit le cours jusqu'a cette date (UX-08).
+  /// A presenter comme de la CONSOLIDATION, jamais comme une sanction : un
+  /// delai vecu comme une punition serait un dark pattern, que le Manifeste
+  /// refuse — d'autant plus dans un service payant.
+  prochaineTentativeLe DateTime?
   updatedAt   DateTime             @updatedAt
 
   @@unique([userId, lessonId])
@@ -859,4 +871,39 @@ model ContactMessage {
 
   @@index([handled, createdAt])
   @@map("contact_messages")
+}
+
+/// Activite d'une lecon dont l'achevement est suivi individuellement (UX-08).
+///
+/// Le suivi PAR ACTIVITE est ce que le PO a retenu, sur le modele de Moodle et
+/// de ses cases « Erledigt ». Une lecon n'est complete que lorsque toutes ses
+/// activites le sont — et le bloc d'exercices ne s'ouvre qu'une fois le contenu
+/// suivi.
+///
+/// `EXERCICES` couvre l'ensemble du bloc, quels que soient les formats employes
+/// (QCM, texte a trous, appariement, remise en ordre). Le « quiz » n'est pas un
+/// objet distinct : c'est ce bloc.
+enum ActiviteLecon {
+  CONTENU
+  AUDIO
+  EXERCICES
+}
+
+/// Achevement d'une activite par un apprenant (UX-08).
+///
+/// Une ligne par activite terminee : l'absence de ligne vaut « pas fait ». On
+/// evite ainsi de pre-creer des lignes pour chaque activite de chaque lecon
+/// pour chaque inscrit.
+model ProgressionActivite {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  activite   ActiviteLecon
+  termineeLe DateTime      @default(now())
+
+  @@unique([userId, lessonId, activite])
+  @@index([userId, lessonId])
+  @@map("progression_activite")
 }
