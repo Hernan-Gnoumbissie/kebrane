@@ -3,21 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BookOpen,
-  ChevronRight,
-  FileText,
-  GraduationCap,
-  Headphones,
-  LayoutDashboard,
-  Mic,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PenLine,
-  UserCog,
-} from "lucide-react";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { cn } from "@/lib/utils";
+import type { EntreeNav, SectionNav } from "@/lib/navigation-apprenant";
 
 /**
  * Barre latérale de l'espace apprenant (UX-07, UX-11).
@@ -37,42 +26,9 @@ import { cn } from "@/lib/utils";
  * principale doit suivre la largeur de la colonne. Passer l'état par un
  * contexte aurait demandé un fournisseur de plus pour la même chose.
  */
-type Entree = { href: string; label: string; icon: React.ElementType; exact?: boolean };
-type Section = { titre: string; entrees: Entree[] };
-
-/** Regroupement pensé du point de vue de l'apprenant, pas de l'arborescence. */
-const SECTIONS: Section[] = [
-  {
-    titre: "Mon parcours",
-    entrees: [
-      { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
-      { href: "/learn", label: "Apprentissage", icon: GraduationCap },
-    ],
-  },
-  {
-    titre: "S'entraîner",
-    entrees: [
-      { href: "/practice", label: "Lesen / Hören", icon: Headphones, exact: true },
-      { href: "/practice/schreiben", label: "Schreiben", icon: PenLine },
-      { href: "/practice/sprechen", label: "Sprechen", icon: Mic },
-    ],
-  },
-  {
-    titre: "S'évaluer",
-    entrees: [
-      { href: "/exams", label: "Examens blancs", icon: FileText },
-      { href: "/progress", label: "Ma progression", icon: BookOpen },
-    ],
-  },
-  {
-    titre: "Mon compte",
-    entrees: [{ href: "/account", label: "Paramètres", icon: UserCog }],
-  },
-];
-
 const CLE_STOCKAGE = "gp:barre-laterale-ouverte";
 
-function Lien({ entree, ouverte }: { entree: Entree; ouverte: boolean }) {
+function Lien({ entree, ouverte }: { entree: EntreeNav; ouverte: boolean }) {
   const pathname = usePathname();
   // `exact` évite que /practice reste allumé sur /practice/schreiben.
   const actif = entree.exact ? pathname === entree.href : pathname.startsWith(entree.href);
@@ -110,7 +66,13 @@ function Lien({ entree, ouverte }: { entree: Entree; ouverte: boolean }) {
   );
 }
 
-export function LearnerSidebar({ children }: { children: React.ReactNode }) {
+export function LearnerSidebar({
+  sections,
+  children,
+}: {
+  sections: SectionNav[];
+  children: React.ReactNode;
+}) {
   // Ouverte par défaut, puis alignée sur la préférence mémorisée. Lire le
   // stockage dans un effet plutôt qu'à l'initialisation évite que le serveur et
   // le client rendent deux largeurs différentes.
@@ -139,7 +101,7 @@ export function LearnerSidebar({ children }: { children: React.ReactNode }) {
       >
         <div className="flex-1 overflow-y-auto px-3 py-4">
           <nav className="space-y-5">
-            {SECTIONS.map((section) => (
+            {sections.map((section) => (
               <div key={section.titre}>
                 {/* Repliée, le titre de section disparaît mais l'espacement
                     reste : les groupes restent perceptibles sans texte. */}
