@@ -5,8 +5,7 @@
  * dans la barre latérale. Résultat, le menu burger et la barre ne montraient pas
  * les mêmes destinations, et surtout la barre IGNORAIT les restrictions — un
  * compte en préparation intensive y voyait « Apprentissage », que son layout
- * bloque ensuite, et l'administrateur y voyait un tableau de bord que l'en-tête
- * retire délibérément.
+ * bloque ensuite.
  *
  * Les deux consomment désormais cette fonction. Le regroupement suit le point de
  * vue de l'apprenant, pas l'arborescence : on s'entraîne, on s'évalue, et le
@@ -34,22 +33,21 @@ export type EntreeNav = {
 export type SectionNav = { titre: string; entrees: EntreeNav[] };
 
 export type DroitsNav = {
-  isAdmin: boolean;
   /** Formule « préparation intensive » : pas d'accès au curriculum. */
   examPrepOnly: boolean;
 };
 
-export function sectionsApprenant({ isAdmin, examPrepOnly }: DroitsNav): SectionNav[] {
-  const parcours: EntreeNav[] = [];
-  // L'admin a son propre espace ; pas de tableau de bord étudiant dans sa nav.
-  if (!isAdmin) {
-    parcours.push({
-      href: "/dashboard",
-      label: "Tableau de bord",
-      icon: LayoutDashboard,
-      exact: true,
-    });
-  }
+export function sectionsApprenant({ examPrepOnly }: DroitsNav): SectionNav[] {
+  // Le tableau de bord figure TOUJOURS, y compris pour un administrateur.
+  //
+  // L'ancien en-tête le retirait de la nav des admins — « ils ont leur propre
+  // espace ». La règle devient absurde dans une barre latérale : /dashboard
+  // reste atteignable et sert justement de « vue candidat » à l'admin, qui s'y
+  // retrouvait donc sans aucune entrée active, sur une page absente de sa
+  // propre navigation.
+  const parcours: EntreeNav[] = [
+    { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
+  ];
   if (!examPrepOnly) {
     parcours.push({ href: "/learn", label: "Apprentissage", icon: GraduationCap });
   }

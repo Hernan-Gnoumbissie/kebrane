@@ -37,7 +37,7 @@ export async function LearnerShell({ children }: { children: React.ReactNode }) 
   return (
     <>
       <AppHeader />
-      <LearnerSidebar droits={{ isAdmin, examPrepOnly }}>
+      <LearnerSidebar droits={{ examPrepOnly }}>
         {children}
       </LearnerSidebar>
     </>

@@ -26,6 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getProgressData, SECTION_LABEL } from "@/lib/progress";
 import { ScoreLineChart, Donut, HBar } from "@/components/charts";
 import { TASK_FORMAT_LABELS } from "@/lib/content-enums";
+import { UNLOCK_MIN_SESSIONS, UNLOCK_THRESHOLD_PCT } from "@/lib/level-progression";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -170,18 +171,20 @@ export default async function DashboardPage({
             hasLearn ? "lg:grid-cols-4" : "lg:grid-cols-3"
           )}
         >
+          {/* La règle complète, pas sa moitié flatteuse : le seuil de score ne
+              vaut rien sans le nombre de sessions qui le rend significatif. */}
           <StatCard
             icone={Target}
             label={`Score moyen · ${effectiveLevel}`}
             valeur={`${currentLevelAvgPct} %`}
-            precision="70 % requis pour le niveau suivant"
+            precision={`${UNLOCK_THRESHOLD_PCT} % sur ${UNLOCK_MIN_SESSIONS} sessions pour passer au niveau suivant`}
             tendance={tendance}
           />
           <StatCard
             icone={ClipboardList}
             label="Sessions corrigées"
             valeur={currentLevelSessions}
-            precision={`au niveau ${effectiveLevel}`}
+            precision={`au niveau ${effectiveLevel} · ${UNLOCK_MIN_SESSIONS} requises pour progresser`}
           />
           <StatCard
             icone={PenLine}
@@ -445,6 +448,17 @@ function LevelProgressStrip({
     : "A1";
   const currentIdx = ALL_LEVELS.indexOf(currentLevel as (typeof ALL_LEVELS)[number]);
 
+  // Les DEUX conditions de `checkAndUnlockNextLevel`, telles quelles.
+  const sessionsSuffisantes = sessions >= UNLOCK_MIN_SESSIONS;
+  const scoreSuffisant = avgPct >= UNLOCK_THRESHOLD_PCT;
+  // La barre suit la condition la moins avancée, jamais la plus flatteuse.
+  const pctDeblocage = Math.round(
+    Math.min(
+      (Math.min(sessions, UNLOCK_MIN_SESSIONS) / UNLOCK_MIN_SESSIONS) * 100,
+      (Math.min(avgPct, UNLOCK_THRESHOLD_PCT) / UNLOCK_THRESHOLD_PCT) * 100
+    )
+  );
+
   return (
     <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -492,24 +506,54 @@ function LevelProgressStrip({
         })}
       </div>
       {/* Progression au niveau actuel */}
-      <div className="text-xs text-muted-foreground space-y-1">
-        <div className="flex items-center gap-2">
+      {/* Le déblocage exige DEUX conditions : au moins 5 sessions ET 70 % de
+          moyenne. On n'en affichait qu'une — la barre était pleine et verte à
+          100 % sur 3 sessions, alors que le niveau suivant restait verrouillé.
+          Annoncer un seuil atteint devant une porte fermée est pire que ne rien
+          annoncer : l'apprenant croit avoir réussi et ne comprend pas. */}
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>
-            Niveau {currentLevel} — {sessions} session{sessions !== 1 ? "s" : ""}, score moyen{" "}
-            <strong>{avgPct} %</strong> / 70 % requis
+            Niveau {currentLevel} —{" "}
+            <strong className={cn(sessionsSuffisantes && "text-success")}>
+              {sessions}/{UNLOCK_MIN_SESSIONS}
+            </strong>{" "}
+            session{UNLOCK_MIN_SESSIONS > 1 ? "s" : ""}
+          </span>
+          <span>
+            score moyen{" "}
+            <strong className={cn(scoreSuffisant && "text-success")}>{avgPct} %</strong> /{" "}
+            {UNLOCK_THRESHOLD_PCT} % requis
           </span>
         </div>
         {sessions > 0 ? (
-          <div className="h-1.5 w-full max-w-xs rounded-full bg-muted overflow-hidden">
+          <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted">
+            {/* La barre suit la condition la MOINS avancée : elle ne peut plus
+                afficher « plein » tant que le niveau ne se débloque pas. */}
             <div
               className={cn(
                 "h-full rounded-full transition-all",
-                avgPct >= 70 ? "bg-success" : "bg-primary"
+                pctDeblocage >= 100 ? "bg-success" : "bg-primary"
               )}
-              style={{ width: `${Math.min(avgPct, 100)}%` }}
+              style={{ width: `${pctDeblocage}%` }}
               aria-hidden="true"
             />
           </div>
+        ) : null}
+        {!sessionsSuffisantes ? (
+          <p>
+            Encore{" "}
+            <strong>
+              {UNLOCK_MIN_SESSIONS - sessions} session
+              {UNLOCK_MIN_SESSIONS - sessions > 1 ? "s" : ""}
+            </strong>{" "}
+            d&apos;entraînement pour pouvoir débloquer le niveau suivant.
+          </p>
+        ) : !scoreSuffisant ? (
+          <p>
+            Il vous manque {UNLOCK_THRESHOLD_PCT - Math.round(avgPct)} points de moyenne pour
+            débloquer le niveau suivant.
+          </p>
         ) : null}
       </div>
     </div>

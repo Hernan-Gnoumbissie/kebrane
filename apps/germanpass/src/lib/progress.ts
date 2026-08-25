@@ -123,7 +123,11 @@ export async function getProgressData(user: User): Promise<ProgressData> {
 
   // --- Plan d'amélioration heuristique ---
   const plan: PlanAction[] = [];
-  const level = user.targetLevel ?? "B1";
+  // Le plan porte sur le niveau DÉBLOQUÉ, pas sur l'objectif : on proposait un
+  // examen blanc B1 à un apprenant A1 (repli codé en dur sur "B1" quand aucun
+  // objectif n'est saisi). Conseiller un exercice hors de portée n'oriente pas,
+  // il décourage. `currentLevel` a A1 pour défaut en base : plus de repli.
+  const level = user.currentLevel;
 
   for (const s of sections) {
     if (s.pct < 60 && s.answered >= 5) {

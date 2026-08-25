@@ -82,7 +82,7 @@ export async function AppHeader() {
         </div>
 
         {/* ── Menu burger mobile ── */}
-        <MobileNav droits={{ isAdmin, examPrepOnly }} isAdmin={isAdmin} firstName={firstName} />
+        <MobileNav droits={{ examPrepOnly }} isAdmin={isAdmin} firstName={firstName} />
       </div>
     </header>
 
