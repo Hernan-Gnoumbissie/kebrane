@@ -3,8 +3,20 @@ import { db } from "@/lib/db";
 import { requireFullPlan, guardErrorResponse } from "@/lib/guards";
 import { gradeAnswer, type GradableQuestion } from "@/lib/correction";
 import { LEVEL_ORDER } from "@/lib/level-progression";
+import {
+  SEUIL_REUSSITE,
+  exercicesAccessibles,
+  minutesAvantNouvelleTentative,
+  nouvelleTentativePossible,
+  prochaineTentativeApresEchec,
+  type ActiviteLecon,
+  type EtatLecon,
+  type Lecon,
+} from "@/lib/progression-curriculum";
 
-const CHAPTER_PASS_THRESHOLD = 70;
+// Le seuil etait redefini ici a 70. Il vient desormais du module de regles :
+// deux constantes pour un meme seuil finissent toujours par diverger.
+const CHAPTER_PASS_THRESHOLD = SEUIL_REUSSITE;
 
 const schema = z.object({
   answers: z.array(z.object({ exerciseId: z.string(), response: z.unknown() })).min(1),
@@ -29,11 +41,68 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     });
     if (!lesson) return Response.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
-    // Garde : niveau du cours verrouillé
+    // Garde : niveau du cours verrouillé. En PREMIER — c'est la garde la plus
+    // large, et la placer apres aurait fait deux requetes pour rien.
     if (LEVEL_ORDER.indexOf(lesson.course.level as never) > LEVEL_ORDER.indexOf(user.currentLevel)) {
       return Response.json(
         { error: { code: "LEVEL_LOCKED", message: "Ce niveau n'est pas encore débloqué." } },
         { status: 403 }
+      );
+    }
+
+    // ── Règles de progression (UX-08) ──
+    // Vérifiées ICI et pas seulement à l'affichage : une garde qui ne vit que
+    // dans l'interface ne protège que l'interface.
+    const [activites, progressionActuelle] = await Promise.all([
+      db.progressionActivite.findMany({
+        where: { userId: user.id, lessonId: lesson.id },
+        select: { activite: true },
+      }),
+      db.lessonProgress.findUnique({
+        where: { userId_lessonId: { userId: user.id, lessonId: lesson.id } },
+        select: { prochaineTentativeLe: true },
+      }),
+    ]);
+
+    const lecon: Lecon = {
+      id: lesson.id,
+      aAudio: Boolean(lesson.audioPath),
+      estTestChapitre: lesson.estTestChapitre,
+    };
+    const etat: EtatLecon = {
+      activitesTerminees: activites.map((a) => a.activite as ActiviteLecon),
+      meilleurScore: null,
+      prochaineTentativeLe: progressionActuelle?.prochaineTentativeLe ?? null,
+    };
+
+    // L'accès au quiz n'est conditionné QUE par le fait d'avoir suivi le cours,
+    // jamais par un score — règle explicite du PO.
+    if (!exercicesAccessibles(lecon, etat)) {
+      return Response.json(
+        {
+          error: {
+            code: "CONTENU_NON_SUIVI",
+            message: "Terminez d'abord la leçon avant de répondre aux exercices.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
+    const maintenant = new Date();
+    if (!nouvelleTentativePossible(etat, maintenant)) {
+      const minutes = minutesAvantNouvelleTentative(etat, maintenant);
+      return Response.json(
+        {
+          error: {
+            code: "REVISION_EN_COURS",
+            // Formulé comme une consolidation, pas comme une sanction : on dit
+            // quoi faire du délai, et combien il reste.
+            message: `Relisez la leçon : vous pourrez retenter dans ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+            minutesRestantes: minutes,
+          },
+        },
+        { status: 429 }
       );
     }
 
@@ -101,6 +170,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         status: completed ? "COMPLETED" : "IN_PROGRESS",
         bestScore,
         completedAt: completed ? new Date() : null,
+      },
+    });
+
+    // Le bloc d'exercices a été fait : l'activité est acquise, que le score
+    // suffise ou non. Refaire lire toute la leçon après un simple échec au
+    // quiz serait une double peine.
+    await db.progressionActivite.upsert({
+      where: {
+        userId_lessonId_activite: {
+          userId: user.id,
+          lessonId: lesson.id,
+          activite: "EXERCICES",
+        },
+      },
+      update: {},
+      create: { userId: user.id, lessonId: lesson.id, activite: "EXERCICES" },
+    });
+
+    // Échec : on pose l'échéance de révision. Réussite : on la lève, sinon un
+    // délai pose lors d'une tentative precedente survivrait a la reussite.
+    await db.lessonProgress.update({
+      where: { userId_lessonId: { userId: user.id, lessonId: lesson.id } },
+      data: {
+        prochaineTentativeLe: completed ? null : prochaineTentativeApresEchec(maintenant),
       },
     });
 
