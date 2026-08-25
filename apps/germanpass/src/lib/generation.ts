@@ -40,11 +40,18 @@ const generatedLessonSchema = z.object({
       z.object({
         taskFormat: z.enum(["MCQ_SINGLE", "TRUE_FALSE"]),
         prompt: z.string().min(3),
-        options: z
-          .array(z.object({ text: z.string().min(1), isCorrect: z.boolean() }))
-          .min(2)
-          .max(4)
-          .nullish(),
+        // Un TRUE_FALSE n'a pas d'options, et le modèle l'exprime par un
+        // tableau VIDE plutôt qu'en omettant la clé. Sans ce prétraitement,
+        // `.min(2)` rejetait la génération entière pour un exercice
+        // parfaitement valide (KB-38).
+        options: z.preprocess(
+          (v) => (Array.isArray(v) && v.length === 0 ? undefined : v),
+          z
+            .array(z.object({ text: z.string().min(1), isCorrect: z.boolean() }))
+            .min(2)
+            .max(4)
+            .nullish()
+        ),
         correct: z.boolean().nullish(),
       })
     )
@@ -101,7 +108,11 @@ ${ragChunks.length > 0 ? `Inspiration thématique et lexicale (NE PAS copier) :\
       system,
       user: userMsg,
       jsonMode: true,
-      temperature: 0.8,
+      // Basse a dessein (KB-38). A 0.8, le modele s'ecartait du theme demande :
+      // une generation d'alphabet A1 est revenue en lecon sur les pronoms. Un
+      // contenu pedagogique n'a pas besoin de creativite, il a besoin de suivre
+      // la consigne — la variete vient du theme, pas du hasard.
+      temperature: 0.3,
     });
 
     const parsed = generatedPassageSchema.parse(JSON.parse(raw));
@@ -223,6 +234,16 @@ La leçon principale (contentMd) est ENTIÈREMENT EN ALLEMAND adapté au niveau 
 En complément, tu rédiges deux blocs d'aide (Markdown) qui expliquent les points clés de la leçon : helpFr en FRANÇAIS et helpEn en ANGLAIS (traductions des exemples importants, explication des règles).
 Réponds UNIQUEMENT en JSON : {"contentMd": string (leçon en ALLEMAND, SANS les exercices), "helpFr": string, "helpEn": string, "exercises": [{"taskFormat": "MCQ_SINGLE" | "TRUE_FALSE", "prompt": string (consigne en allemand), "options": [{"text": string, "isCorrect": boolean}] (MCQ_SINGLE : 3-4 options, UNE seule correcte), "correct": boolean (TRUE_FALSE uniquement)}] (exactement ${params.exerciseCount} exercices portant sur la leçon)}.`;
 
+    // Le SUJET est répété dans le message système (KB-38). Il n'y figurait que
+    // côté utilisateur, et le modèle l'ignorait : deux demandes distinctes —
+    // l'alphabet, puis les nombres — ont produit la même leçon sur les pronoms
+    // personnels. Ce n'était pas de l'aléatoire mais l'inverse : face à un
+    // système long et prescriptif, il rendait la leçon de grammaire A1 la plus
+    // canonique qui soit. Baisser la température aggravait donc le problème au
+    // lieu de le résoudre.
+    const contrainteSujet = `\n\nSUJET IMPOSÉ, non négociable : « ${params.title} ». Lernziel : ${params.lernziel}.
+La leçon entière — titre, explications, exemples, exercices — porte sur CE sujet et sur aucun autre. Ne remplace jamais ce sujet par un thème plus courant du niveau.`;
+
     const userMsg = `Leçon : « ${params.title} » — Lernziel : ${params.lernziel}. Niveau ${course.level}, cours « ${course.title} ».
 ${ragChunks.length > 0 ? `Inspiration thématique et lexicale (NE PAS copier) :\n${ragChunks.map((c) => `- ${c.content.slice(0, 300)}`).join("\n")}` : ""}`;
 
@@ -230,10 +251,12 @@ ${ragChunks.length > 0 ? `Inspiration thématique et lexicale (NE PAS copier) :\
       userId: params.adminId,
       kind: "generation",
       model: env.AI_MODEL_GENERATION,
-      system,
+      system: system + contrainteSujet,
       user: userMsg,
       jsonMode: true,
-      temperature: 0.7,
+      // Meme raison qu'en generation de passage : on veut de l'obeissance au
+      // Lernziel, pas de l'invention.
+      temperature: 0.2,
     });
 
     const parsed = generatedLessonSchema.parse(JSON.parse(raw));
