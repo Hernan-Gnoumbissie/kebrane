@@ -30,6 +30,20 @@ export type ActiviteLecon = "CONTENU" | "AUDIO" | "EXERCICES";
 /** Seuil de réussite du bloc d'exercices, en pourcentage. */
 export const SEUIL_REUSSITE = 70;
 
+/**
+ * Délai avant une nouvelle tentative, après un échec — en MINUTES.
+ *
+ * Court à dessein (décision PO). Il existe pour laisser le temps de relire la
+ * leçon, pas pour sanctionner : quelques minutes suffisent à cela, des heures
+ * ne feraient que décourager quelqu'un qui vient d'échouer.
+ *
+ * Volontairement FIXE, et non croissant à chaque échec. Un délai qui s'allonge
+ * se lit comme une punition — exactement ce que le Manifeste refuse, et
+ * d'autant plus mal reçu dans un service payant. Celui qui échoue trois fois a
+ * besoin d'aide, pas d'attente.
+ */
+export const DELAI_REVISION_MINUTES = 10;
+
 export type Lecon = {
   id: string;
   /** L'audio n'est attendu que si la leçon en propose un. */
@@ -83,6 +97,18 @@ export function leconEstComplete(lecon: Lecon, etat: EtatLecon): boolean {
 export function nouvelleTentativePossible(etat: EtatLecon, maintenant: Date): boolean {
   if (!etat.prochaineTentativeLe) return true;
   return maintenant.getTime() >= etat.prochaineTentativeLe.getTime();
+}
+
+/** Échéance à enregistrer après un échec au bloc d'exercices. */
+export function prochaineTentativeApresEchec(maintenant: Date): Date {
+  return new Date(maintenant.getTime() + DELAI_REVISION_MINUTES * 60_000);
+}
+
+/** Minutes restantes avant de pouvoir retenter — 0 si c'est déjà possible. */
+export function minutesAvantNouvelleTentative(etat: EtatLecon, maintenant: Date): number {
+  if (nouvelleTentativePossible(etat, maintenant)) return 0;
+  const restant = etat.prochaineTentativeLe!.getTime() - maintenant.getTime();
+  return Math.ceil(restant / 60_000);
 }
 
 /**

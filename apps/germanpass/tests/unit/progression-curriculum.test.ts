@@ -1,13 +1,16 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
+  DELAI_REVISION_MINUTES,
   ETAT_VIERGE,
   activitesAttendues,
   chapitreFranchi,
   exercicesAccessibles,
   leconDeverrouillee,
   leconEstComplete,
+  minutesAvantNouvelleTentative,
   nouvelleTentativePossible,
+  prochaineTentativeApresEchec,
   progressionChapitre,
   type EtatLecon,
   type Lecon,
@@ -75,6 +78,19 @@ describe("lecon complete", () => {
 
 describe("delai apres echec", () => {
   const t0 = new Date("2026-08-25T10:00:00Z");
+
+  test("l'echeance est fixee a quelques minutes, pas a des heures", () => {
+    const echeance = prochaineTentativeApresEchec(t0);
+    const minutes = (echeance.getTime() - t0.getTime()) / 60_000;
+    assert.equal(minutes, DELAI_REVISION_MINUTES);
+    assert.ok(minutes <= 30, "au-dela, le delai decourage au lieu de faire relire");
+  });
+
+  test("le temps restant est annonce en minutes, arrondi au superieur", () => {
+    const e = etat({ prochaineTentativeLe: new Date("2026-08-25T10:09:30Z") });
+    assert.equal(minutesAvantNouvelleTentative(e, t0), 10);
+    assert.equal(minutesAvantNouvelleTentative(ETAT_VIERGE, t0), 0);
+  });
 
   test("sans delai enregistre, on peut retenter", () => {
     assert.equal(nouvelleTentativePossible(ETAT_VIERGE, t0), true);
