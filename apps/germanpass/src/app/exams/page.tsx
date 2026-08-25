@@ -328,7 +328,8 @@ export default function ExamsPage() {
                 En attendant, entraînez-vous par compétence.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
-                <a href="/practice" className="text-sm underline">Lesen/Hören</a>
+                <a href="/practice/lesen" className="text-sm underline">Lesen</a>
+                <a href="/practice/hoeren" className="text-sm underline">Hören</a>
                 <a href="/practice/schreiben" className="text-sm underline">Schreiben</a>
                 <a href="/practice/sprechen" className="text-sm underline">Sprechen</a>
               </div>

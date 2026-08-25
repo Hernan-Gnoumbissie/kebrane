@@ -32,6 +32,20 @@ export const SECTION_LABEL: Record<string, string> = {
   SPRECHEN: "Sprechen",
 };
 
+/**
+ * Chaque compétence a désormais sa propre adresse.
+ *
+ * Le plan renvoyait tout le monde sur `/practice`, où il fallait re-choisir la
+ * compétence dans un menu — un conseil qui nomme précisément ce qu'il faut
+ * travailler ne devrait pas redemander de quoi il parle.
+ */
+export const SECTION_HREF: Record<string, string> = {
+  LESEN: "/practice/lesen",
+  HOEREN: "/practice/hoeren",
+  SCHREIBEN: "/practice/schreiben",
+  SPRECHEN: "/practice/sprechen",
+};
+
 export async function getProgressData(user: User): Promise<ProgressData> {
   const [attempts, answers, writings, speakings, lessonsDone, dueCards, recommendations] =
     await Promise.all([
@@ -135,7 +149,7 @@ export async function getProgressData(user: User): Promise<ProgressData> {
         priority: 1,
         title: `Renforcer ${s.label} (${s.pct} % de réussite)`,
         detail: `Refaites des entraînements ${s.label} au niveau ${level} pour remonter au-dessus de 60 %.`,
-        href: "/practice",
+        href: SECTION_HREF[s.section] ?? "/practice/lesen",
       });
     }
   }
@@ -145,7 +159,7 @@ export async function getProgressData(user: User): Promise<ProgressData> {
         priority: 2,
         title: `Travailler le format « ${f.taskFormat} » en ${SECTION_LABEL[f.section] ?? f.section} (${f.pct} %)`,
         detail: "Ce type de tâche revient dans l'examen — entraînez-vous spécifiquement dessus.",
-        href: "/practice",
+        href: SECTION_HREF[f.section] ?? "/practice/lesen",
       });
     }
   }

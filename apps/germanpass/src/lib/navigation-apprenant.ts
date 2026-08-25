@@ -13,6 +13,7 @@
  */
 import {
   BookOpen,
+  BookOpenCheck,
   FileText,
   GraduationCap,
   Headphones,
@@ -59,7 +60,12 @@ export function sectionsApprenant({ examPrepOnly }: DroitsNav): SectionNav[] {
     {
       titre: "S'entraîner",
       entrees: [
-        { href: "/practice", label: "Lesen / Hören", icon: Headphones, exact: true },
+        // Les quatre compétences de l'examen, à égalité. « Lesen / Hören »
+        // était une seule entrée pour deux épreuves distinctes : impossible
+        // d'aller droit à la compréhension orale, et la barre s'allumait de la
+        // même façon dans les deux cas.
+        { href: "/practice/lesen", label: "Lesen", icon: BookOpenCheck },
+        { href: "/practice/hoeren", label: "Hören", icon: Headphones },
         { href: "/practice/schreiben", label: "Schreiben", icon: PenLine },
         { href: "/practice/sprechen", label: "Sprechen", icon: Mic },
       ],

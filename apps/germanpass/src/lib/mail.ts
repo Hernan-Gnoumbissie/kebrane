@@ -306,7 +306,7 @@ export const mailTemplates = {
        <p style="color:#374151;font-size:14px;margin:0 0 20px">
          Continue à t'entraîner régulièrement pour progresser vers le niveau suivant. Chaque session compte !
        </p>
-       ${ctaButton(`Commencer le niveau ${newLevel} →`, `${APP_URL}/practice`)}
+       ${ctaButton(`Commencer le niveau ${newLevel} →`, `${APP_URL}/practice/lesen`)}
        <p style="margin-top:16px;color:#475569;font-size:13px">Viel Erfolg ! L'équipe GermanPass 🇩🇪</p>`
     ),
   }),

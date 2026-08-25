@@ -225,8 +225,8 @@ export default async function DashboardPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/practice" className={buttonVariants()}>
-              Premier entraînement Lesen/Hören
+            <Link href="/practice/lesen" className={buttonVariants()}>
+              Premier entraînement Lesen
             </Link>
           </CardContent>
         </Card>
@@ -315,7 +315,7 @@ export default async function DashboardPage({
                   </CardDescription>
                 </div>
                 <Link
-                  href="/practice"
+                  href="/practice/lesen"
                   className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
                 >
                   S&apos;entraîner
@@ -380,7 +380,7 @@ export default async function DashboardPage({
                 </CardDescription>
               </div>
               <Link
-                href="/practice"
+                href="/practice/lesen"
                 className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
               >
                 S&apos;entraîner
@@ -406,8 +406,11 @@ export default async function DashboardPage({
           <CardTitle className="text-base">Accès rapide</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Link href="/practice" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Lesen/Hören
+          <Link href="/practice/lesen" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Lesen
+          </Link>
+          <Link href="/practice/hoeren" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Hören
           </Link>
           <Link href="/practice/schreiben" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Schreiben

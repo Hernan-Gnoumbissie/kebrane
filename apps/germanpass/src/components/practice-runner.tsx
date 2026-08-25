@@ -64,8 +64,19 @@ function pickExplanation(r: ResultRow, lang: ExplLang): string | null {
   return r.explanation;
 }
 
-export default function PracticePage() {
-  const [section, setSection] = useState<"LESEN" | "HOEREN">("LESEN");
+/** Compétence traitée par ce moteur. Elle vient de la ROUTE, plus d'un menu :
+ *  Lesen et Hören sont deux entraînements distincts, pas deux options d'un
+ *  meme ecran. Les confondre obligeait l'apprenant a choisir sa competence
+ *  avant de pouvoir s'entrainer, et rendait impossible un lien direct vers
+ *  l'un des deux. */
+export type SectionEntrainement = "LESEN" | "HOEREN";
+
+const TITRE: Record<SectionEntrainement, string> = {
+  LESEN: "Entraînement Lesen",
+  HOEREN: "Entraînement Hören",
+};
+
+export function PracticeRunner({ section }: { section: SectionEntrainement }) {
   const [level, setLevel] = useState<Level>("B1");
   const [session, setSession] = useState<Session | null>(null);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
@@ -329,7 +340,7 @@ export default function PracticePage() {
 
   return (
     <main className="container max-w-3xl space-y-6 py-10">
-      <h1 className="text-3xl font-bold">Entraînement Lesen / Hören</h1>
+      <h1 className="text-3xl font-bold">{TITRE[section]}</h1>
 
       {/* ── Notification de déblocage de niveau ── */}
       {unlockedLevel ? (
@@ -354,18 +365,8 @@ export default function PracticePage() {
         <Card>
           <CardContent className="flex flex-col gap-4 pt-6">
             <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-            <div>
-              <p className="mb-1.5 text-sm font-medium">Compétence</p>
-              <Select
-                aria-label="Compétence"
-                className="w-auto min-w-40"
-                value={section}
-                onChange={(e) => setSection(e.target.value as "LESEN" | "HOEREN")}
-              >
-                <option value="LESEN">Lesen</option>
-                <option value="HOEREN">Hören</option>
-              </Select>
-            </div>
+            {/* Plus de sélecteur de compétence : la route en porte une seule.
+                Le seul choix qui reste ici est celui du niveau. */}
             <div>
               <p className="mb-1.5 text-sm font-medium">Niveau</p>
               <LevelSelector
