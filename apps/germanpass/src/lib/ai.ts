@@ -20,6 +20,13 @@ const PRICING: Record<string, { in: number; out: number }> = {
   "gpt-4o-mini": { in: 0.15, out: 0.6 },
   "text-embedding-3-small": { in: 0.02, out: 0 },
   "tts-1": { in: 15, out: 0 }, // USD / 1M caractères
+  // gpt-4o-mini-tts est facturé 0,60 $/1M caractères en entrée PLUS 12 $/1M
+  // tokens audio en sortie. On ne mesure pas les tokens audio (l'API ne les
+  // renvoie pas sur cet endpoint), donc ce tarif est un ÉQUIVALENT par
+  // caractère : ~0,015 $/min d'audio, à ~15 caractères/seconde de parole
+  // allemande, soit ~16,7 $/1M caractères, plus les 0,60 $ d'entrée.
+  // Approximation assumée pour le suivi budgétaire, pas une facture.
+  "gpt-4o-mini-tts": { in: 17.3, out: 0 },
   "whisper-1": { in: 6_000, out: 0 }, // USD / 1M secondes ≈ 0,006 $/min ≈ 0,0001 $/s
 };
 
@@ -254,24 +261,39 @@ export async function transcribeImage(params: {
   }
 }
 
-/** TTS : retourne le binaire audio (mp3). */
+/**
+ * TTS : retourne le binaire audio.
+ *
+ * `format` par défaut mp3 — comportement historique inchangé. Le pipeline des
+ * dialogues Hören demande `pcm` : il assemble les répliques échantillon par
+ * échantillon puis encode une seule fois (voir lib/hoeren/pcm.ts).
+ *
+ * `instructions` n'est accepté que par les modèles récents ; `tts-1` et
+ * `tts-1-hd` répondent 400 si on l'envoie. C'est à l'appelant de trancher —
+ * `supporteInstructions()` dans lib/hoeren/instructions.ts.
+ */
 export async function tts(params: {
   text: string;
   voice: string;
   speed: number;
   userId?: string | null;
+  model?: string;
+  format?: "mp3" | "pcm" | "wav" | "opus" | "aac" | "flac";
+  instructions?: string;
 }): Promise<Buffer> {
   const start = Date.now();
+  const model = params.model ?? env.TTS_MODEL;
   const res = await fetch(`${env.AI_BASE_URL}/audio/speech`, {
     method: "POST",
     headers: aiHeaders(),
     signal: AbortSignal.timeout(AI_AUDIO_TIMEOUT_MS),
     body: JSON.stringify({
-      model: env.TTS_MODEL,
+      model,
       input: params.text,
       voice: params.voice,
       speed: params.speed,
-      response_format: "mp3",
+      response_format: params.format ?? "mp3",
+      ...(params.instructions ? { instructions: params.instructions } : {}),
     }),
   });
   if (!res.ok) throw new Error(`TTS ${res.status}: ${await res.text()}`);
@@ -279,7 +301,7 @@ export async function tts(params: {
   await logUsage({
     userId: params.userId ?? null,
     kind: "tts",
-    model: env.TTS_MODEL,
+    model,
     inputTokens: params.text.length,
     outputTokens: 0,
     latencyMs: Date.now() - start,

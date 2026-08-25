@@ -13,6 +13,7 @@ import {
   TASK_FORMATS,
   TASK_FORMAT_LABELS,
 } from "@/lib/content-enums";
+import { SITUATIONS } from "@/lib/hoeren/situations";
 import { LevelGroup, SubGroup } from "@/components/level-group";
 
 type Passage = {
@@ -62,6 +63,9 @@ export default function AdminGenerationsPage() {
   const [provider, setProvider] = useState("GOETHE");
   const [level, setLevel] = useState("B1");
   const [section, setSection] = useState("LESEN");
+  // Situation d'ecoute : n'a de sens qu'en Hören, et c'est elle qui bascule la
+  // generation vers un dialogue multi-voix.
+  const [situation, setSituation] = useState("ALLTAG");
   const [taskFormat, setTaskFormat] = useState("MCQ_SINGLE");
   const [theme, setTheme] = useState("");
   const [itemCount, setItemCount] = useState(5);
@@ -90,7 +94,7 @@ export default function AdminGenerationsPage() {
     const res = await fetch("/api/admin/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, level, section, taskFormat, theme, itemCount }),
+      body: JSON.stringify({ provider, level, section, taskFormat, theme, itemCount, ...(section === "HOEREN" ? { situation } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -195,6 +199,32 @@ export default function AdminGenerationsPage() {
               <Label htmlFor="g-count">Nb questions</Label>
               <Input id="g-count" type="number" min={1} max={15} value={itemCount} onChange={(e) => setItemCount(Number(e.target.value))} />
             </div>
+            {/* Le décor n'apparaît qu'en Hören : c'est lui qui détermine
+                combien de personnes parlent, donc combien de voix distinctes
+                seront distribuées. */}
+            {section === "HOEREN" ? (
+              <div className="col-span-2 space-y-1 md:col-span-3">
+                <Label htmlFor="g-situation">Situation d&apos;écoute</Label>
+                <select
+                  id="g-situation"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={situation}
+                  onChange={(e) => setSituation(e.target.value)}
+                >
+                  {SITUATIONS.map((s) => (
+                    <option key={s.cle} value={s.cle}>
+                      {s.libelle} — {s.locuteurs.min === s.locuteurs.max
+                        ? `${s.locuteurs.min} voix`
+                        : `${s.locuteurs.min} à ${s.locuteurs.max} voix`}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Chaque personnage reçoit une voix distincte. L&apos;audio n&apos;est pas généré
+                  ici : il se lance depuis le passage, une fois le dialogue relu.
+                </p>
+              </div>
+            ) : null}
             <div className="col-span-2 space-y-1 md:col-span-3">
               <Label htmlFor="g-theme">Thème</Label>
               <Input id="g-theme" value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="ex. : la vie quotidienne en colocation" required minLength={3} maxLength={200} />

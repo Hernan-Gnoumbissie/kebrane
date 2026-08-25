@@ -153,6 +153,17 @@ enum AudioJobStatus {
   FAILED
 }
 
+/// État de l'audio d'un passage Hören.
+/// NONE couvre les passages Lesen et les Hören dont l'audio n'a jamais été
+/// demandé — il ne faut pas confondre « pas encore lancé » et « échoué ».
+enum AudioStatus {
+  NONE
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
 // ============================================================
 // UTILISATEURS, PAIEMENT, AUDIT, IA
 // ============================================================
@@ -404,6 +415,21 @@ model Passage {
   audioPath    String? // Hören
   variety      AudioVariety? // de | at | ch (spécificité ÖSD)
   maxListens   Int           @default(1)
+
+  // --- Dialogue multi-voix (Hören) ---
+  // Tout est nullable : un passage antérieur n'a ni speakers ni dialogue, et
+  // continue de fonctionner sur l'ancien chemin (une voix, `body` en entrée).
+  situation        String? // clé de lib/hoeren/situations.ts (ALLTAG, ARZTBESUCH…)
+  speakers         Json? // casting : [{ id, nom, genre, tranche, role, profilId, voix }]
+  dialogue         Json? // répliques ordonnées : [{ speaker_id, text }]
+  audioStatus      AudioStatus @default(NONE)
+  audioDurationSec Float?
+  audioFormat      String? // "mp3"
+  audioGeneratedAt DateTime?
+  // Repères de chaque réplique dans le fichier final, en secondes. Permet à
+  // l'admin de vérifier l'alternance sans réécouter tout le dialogue.
+  audioSegments    Json?
+  audioError       String?
   sourceOrigin SourceOrigin  @default(MANUAL)
   status       ContentStatus @default(DRAFT)
   archived     Boolean       @default(false)

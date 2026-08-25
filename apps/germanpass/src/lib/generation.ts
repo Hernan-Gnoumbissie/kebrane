@@ -9,6 +9,16 @@ import { chatCompletion } from "@/lib/ai";
 import { searchChunks } from "@/lib/rag";
 import { checkAgainstLibrary } from "@/lib/anti-copy";
 import { env } from "@/lib/env";
+import { locuteursCibles, situationParCle, type NiveauCecrl } from "@/lib/hoeren/situations";
+import { systemeDialogue, utilisateurDialogue } from "@/lib/hoeren/prompt";
+import {
+  dialogueGenereSchema,
+  transcript,
+  validerCasting,
+  validerDialogue,
+  versPersonnagesDemandes,
+} from "@/lib/hoeren/dialogue";
+import { casterPersonnages } from "@/lib/hoeren/voices";
 
 const generatedPassageSchema = z.object({
   title: z.string().min(3),
@@ -67,9 +77,19 @@ export type GeneratePassageParams = {
   taskFormat: TaskFormat;
   theme: string;
   itemCount: number;
+  /**
+   * Hören uniquement : clé de situation (ALLTAG, ARZTBESUCH…). Sa présence
+   * bascule la génération vers un dialogue structuré multi-voix. Absente, on
+   * reste sur le chemin texte historique — y compris pour un Hören, ce qui
+   * permet de continuer à produire un monologue simple.
+   */
+  situation?: string;
 };
 
 export async function generatePassage(params: GeneratePassageParams): Promise<string> {
+  if (params.section === "HOEREN" && params.situation) {
+    return generateDialogueHoeren({ ...params, situation: params.situation });
+  }
   const generation = await db.aiGeneration.create({
     data: {
       requestedById: params.adminId,
@@ -172,6 +192,172 @@ ${ragChunks.length > 0 ? `Inspiration thématique et lexicale (NE PAS copier) :\
         status: "PENDING_REVIEW",
         resultId: passage.id,
         rawOutput: parsed as unknown as Prisma.InputJsonValue,
+        similarityMax: Math.max(antiCopy.maxTrigram, antiCopy.maxEmbedding),
+        ragChunkIds: ragChunks.map((c) => c.id),
+      },
+    });
+    return generation.id;
+  } catch (e) {
+    await db.aiGeneration.update({
+      where: { id: generation.id },
+      data: { status: "FAILED", rejectReason: e instanceof Error ? e.message : "Erreur inconnue" },
+    });
+    throw e;
+  }
+}
+
+/**
+ * Génération d'un dialogue Hören multi-voix.
+ *
+ * Même ossature que `generatePassage` — traçage AiGeneration, RAG, anti-copie,
+ * création en PENDING_REVIEW — mais la sortie du modèle est un dialogue
+ * structuré, validé, puis casté sur des voix DISTINCTES avant d'être écrit.
+ *
+ * L'audio n'est PAS généré ici : le passage naît en `audioStatus: PENDING`, et
+ * c'est l'administration qui déclenche la synthèse une fois le texte relu. On
+ * ne dépense pas en TTS pour un dialogue qui sera peut-être rejeté.
+ */
+async function generateDialogueHoeren(
+  params: GeneratePassageParams & { situation: string }
+): Promise<string> {
+  const situation = situationParCle(params.situation);
+  if (!situation) throw new Error(`Situation inconnue : ${params.situation}`);
+
+  const niveau = params.level as NiveauCecrl;
+  const locuteurs = locuteursCibles(situation, niveau);
+
+  const generation = await db.aiGeneration.create({
+    data: {
+      requestedById: params.adminId,
+      targetType: "passage",
+      provider: params.provider,
+      level: params.level,
+      section: params.section,
+      taskFormat: params.taskFormat,
+      params: { theme: params.theme, itemCount: params.itemCount, situation: params.situation },
+      status: "RUNNING",
+      ragChunkIds: [],
+    },
+  });
+
+  try {
+    const ragChunks = await searchChunks({
+      query: `${params.theme} ${situation.libelle} niveau ${params.level} Hören`,
+      level: params.level,
+      topK: 6,
+    }).catch(() => []);
+
+    const raw = await chatCompletion({
+      userId: params.adminId,
+      kind: "generation",
+      model: env.AI_MODEL_GENERATION,
+      system: systemeDialogue({
+        niveau,
+        situation,
+        locuteurs,
+        itemCount: params.itemCount,
+      }),
+      user: utilisateurDialogue({
+        theme: params.theme,
+        extraitsRag: ragChunks.map((c) => c.content),
+      }),
+      jsonMode: true,
+      temperature: 0.4,
+    });
+
+    const dialogue = dialogueGenereSchema.parse(JSON.parse(raw));
+
+    // Validation AVANT toute dépense : un dialogue mal formé rejeté ici coûte
+    // zéro, le même rejeté après synthèse coûte un appel TTS par réplique.
+    const problemes = validerDialogue(dialogue, niveau);
+    if (problemes.length > 0) {
+      await db.aiGeneration.update({
+        where: { id: generation.id },
+        data: {
+          status: "REJECTED",
+          rejectReason: problemes.map((p) => `${p.code}: ${p.message}`).join(" | "),
+          rawOutput: dialogue as unknown as Prisma.InputJsonValue,
+          ragChunkIds: ragChunks.map((c) => c.id),
+        },
+      });
+      return generation.id;
+    }
+
+    const texte = transcript(dialogue);
+    const antiCopy = await checkAgainstLibrary(texte);
+    if (!antiCopy.ok) {
+      await db.aiGeneration.update({
+        where: { id: generation.id },
+        data: {
+          status: "REJECTED",
+          rejectReason: `Anti-copie : trigram=${antiCopy.maxTrigram.toFixed(2)}, embedding=${antiCopy.maxEmbedding.toFixed(2)}`,
+          similarityMax: Math.max(antiCopy.maxTrigram, antiCopy.maxEmbedding),
+          rawOutput: dialogue as unknown as Prisma.InputJsonValue,
+          ragChunkIds: ragChunks.map((c) => c.id),
+        },
+      });
+      return generation.id;
+    }
+
+    // Casting : c'est ici que chaque personnage reçoit SA voix, distincte de
+    // celle des autres. L'invariant est vérifié juste après, parce qu'un
+    // dialogue à voix unique est précisément le défaut qu'on corrige.
+    const castes = casterPersonnages(versPersonnagesDemandes(dialogue));
+    const soucisCasting = validerCasting(castes);
+    if (soucisCasting.length > 0) {
+      throw new Error(soucisCasting.map((p) => p.message).join(" | "));
+    }
+
+    const passage = await db.passage.create({
+      data: {
+        section: params.section,
+        level: params.level,
+        taskFormat: params.taskFormat,
+        title: dialogue.title,
+        // `body` reste le transcript : le RAG, l'anti-copie, la relecture
+        // admin et tous les écrans existants continuent d'y lire ce qu'ils y
+        // ont toujours lu. La structure vit à côté, elle ne la remplace pas.
+        body: texte,
+        situation: params.situation,
+        speakers: castes as unknown as Prisma.InputJsonValue,
+        dialogue: dialogue.dialogue as unknown as Prisma.InputJsonValue,
+        audioStatus: "PENDING",
+        sourceOrigin: "AI_GENERATED",
+        status: "PENDING_REVIEW",
+        generationId: generation.id,
+        providers: { create: [{ provider: params.provider }] },
+        questions: {
+          create: dialogue.questions.map((q, i) => ({
+            section: params.section,
+            level: params.level,
+            taskFormat: params.taskFormat,
+            prompt: q.prompt,
+            explanation: q.explanation,
+            explanationFr: q.explanationFr,
+            explanationEn: q.explanationEn,
+            sourceOrigin: "AI_GENERATED",
+            status: "PENDING_REVIEW",
+            position: i,
+            options: q.options
+              ? {
+                  create: q.options.map((o, j) => ({
+                    text: o.text,
+                    isCorrect: o.isCorrect,
+                    position: j,
+                  })),
+                }
+              : undefined,
+          })),
+        },
+      },
+    });
+
+    await db.aiGeneration.update({
+      where: { id: generation.id },
+      data: {
+        status: "PENDING_REVIEW",
+        resultId: passage.id,
+        rawOutput: dialogue as unknown as Prisma.InputJsonValue,
         similarityMax: Math.max(antiCopy.maxTrigram, antiCopy.maxEmbedding),
         ragChunkIds: ragChunks.map((c) => c.id),
       },

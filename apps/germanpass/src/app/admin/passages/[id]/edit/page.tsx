@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TASK_FORMATS, TASK_FORMAT_LABELS, PROVIDERS, LEVELS } from "@/lib/content-enums";
+import { HoerenAudioPanel, type EtatAudio } from "@/components/admin/hoeren-audio-panel";
 
 type OptionDraft = { id?: string; text: string; isCorrect: boolean; position: number };
 type QuestionDraft = {
@@ -49,6 +50,9 @@ export default function EditPassagePage() {
   const [maxListens, setMaxListens] = useState(1);
   const [status, setStatus] = useState("DRAFT");
   const [providers, setProviders] = useState<string[]>([]);
+  // Etat audio brut, servi tel quel au panneau : c'est le serveur qui fait
+  // autorite sur le statut, pas le formulaire.
+  const [etatAudio, setEtatAudio] = useState<EtatAudio | null>(null);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
 
   useEffect(() => {
@@ -68,6 +72,17 @@ export default function EditPassagePage() {
       setVariety(passage.variety ?? "");
       setMaxListens(passage.maxListens ?? 1);
       setStatus(["PUBLISHED", "ARCHIVED"].includes(passage.status) ? passage.status : "DRAFT");
+      setEtatAudio({
+        audioStatus: passage.audioStatus ?? "NONE",
+        audioPath: passage.audioPath ?? null,
+        audioDurationSec: passage.audioDurationSec ?? null,
+        audioGeneratedAt: passage.audioGeneratedAt ?? null,
+        audioError: passage.audioError ?? null,
+        situation: passage.situation ?? null,
+        speakers: passage.speakers ?? null,
+        dialogue: passage.dialogue ?? null,
+        audioSegments: passage.audioSegments ?? null,
+      });
       setProviders((passage.providers ?? []).map((p: { provider: string }) => p.provider));
       setQuestions(
         (passage.questions ?? []).map((q: Record<string, unknown>) => ({
@@ -280,6 +295,13 @@ export default function EditPassagePage() {
               </>
             ) : null}
           </div>
+
+          {/* Le panneau audio vit HORS du formulaire : générer un audio n'est
+              pas enregistrer un passage, et confondre les deux ferait perdre
+              les modifications du texte à chaque clic sur « Générer ». */}
+          {section === "HOEREN" && etatAudio ? (
+            <HoerenAudioPanel passageId={id} etat={etatAudio} />
+          ) : null}
 
           <div className="space-y-1">
             <Label>Examens compatibles</Label>

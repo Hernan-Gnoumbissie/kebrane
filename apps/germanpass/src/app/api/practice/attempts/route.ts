@@ -34,6 +34,12 @@ export async function POST(req: Request): Promise<Response> {
       level,
       status: "PUBLISHED" as const,
       archived: false,
+      // Une compréhension orale sans audio n'est pas un exercice difficile,
+      // c'est un exercice impossible. L'assemblage d'examen blanc posait déjà
+      // cette condition ; l'entraînement, non — un Hören publié avant la
+      // synthèse de son audio se serait présenté muet, sans rien pour
+      // l'expliquer au candidat.
+      ...(section === "HOEREN" ? { audioPath: { not: null } } : {}),
       ...(provider ? { providers: { some: { provider } } } : {}),
       ...(passageId ? { id: passageId } : {}),
     };

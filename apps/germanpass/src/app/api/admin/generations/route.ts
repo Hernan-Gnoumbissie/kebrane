@@ -14,6 +14,10 @@ const createSchema = z.object({
   taskFormat: z.enum(["MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE"]),
   theme: z.string().min(3).max(200),
   itemCount: z.coerce.number().int().min(1).max(15),
+  // Hören seulement : choisir une situation bascule la génération vers un
+  // dialogue multi-voix. Sans elle, on produit le texte simple d'avant — ce
+  // qui reste le bon choix pour un monologue lu.
+  situation: z.string().min(1).max(40).optional(),
 });
 
 /** Lance une génération IA (passage + questions) — validation humaine ensuite. */

@@ -26,6 +26,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@clerk/nextjs": "^7.0.0",
     "@kebrane/core": "workspace:*",
     "@kebrane/ui": "workspace:*",
