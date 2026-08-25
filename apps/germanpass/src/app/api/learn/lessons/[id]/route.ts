@@ -102,10 +102,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
     // État des activités : le client en a besoin pour savoir s'il peut ouvrir
     // les exercices, et pour afficher ce qui reste à faire (UX-08).
-    const activitesFaites = await db.progressionActivite.findMany({
-      where: { userId: user.id, lessonId: lesson.id },
-      select: { activite: true },
-    });
+    const [activitesFaites, progression] = await Promise.all([
+      db.progressionActivite.findMany({
+        where: { userId: user.id, lessonId: lesson.id },
+        select: { activite: true },
+      }),
+      // L'échéance de révision doit voyager avec la leçon, pas seulement avec
+      // le résultat d'une soumission : après un rechargement de page, le client
+      // n'avait plus aucun moyen de savoir qu'un délai courait. Le bouton
+      // redevenait actif et le serveur refusait — l'interface promettait ce que
+      // la règle interdisait.
+      db.lessonProgress.findUnique({
+        where: { userId_lessonId: { userId: user.id, lessonId: lesson.id } },
+        select: { prochaineTentativeLe: true, bestScore: true },
+      }),
+    ]);
     const lecon: Lecon = {
       id: lesson.id,
       aAudio: Boolean(lesson.audioPath),
@@ -113,8 +124,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     };
     const etat: EtatLecon = {
       activitesTerminees: activitesFaites.map((a) => a.activite as ActiviteLecon),
-      meilleurScore: null,
-      prochaineTentativeLe: null,
+      meilleurScore: progression?.bestScore ?? null,
+      prochaineTentativeLe: progression?.prochaineTentativeLe ?? null,
     };
 
     // Aide dans la langue native du candidat (repli sur l'autre langue si absente)
@@ -135,6 +146,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       activitesTerminees: etat.activitesTerminees,
       activitesAttendues: activitesAttendues(lecon),
       exercicesAccessibles: exercicesAccessibles(lecon, etat),
+      meilleurScore: etat.meilleurScore,
+      prochaineTentativeLe: etat.prochaineTentativeLe?.toISOString() ?? null,
     });
   } catch (e) {
     return guardErrorResponse(e) ?? Response.json({ error: { code: "INTERNAL" } }, { status: 500 });

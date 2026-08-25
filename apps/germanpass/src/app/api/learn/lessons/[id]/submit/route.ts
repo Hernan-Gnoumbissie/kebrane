@@ -32,7 +32,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const { id } = await ctx.params;
     const parsed = schema.safeParse(await req.json());
     if (!parsed.success) {
-      return Response.json({ error: { code: "VALIDATION", details: parsed.error.flatten() } }, { status: 400 });
+      // Message explicite : sans lui le client retombait sur « Soumission
+      // impossible », qui ne dit ni ce qui manque ni quoi faire.
+      return Response.json(
+        {
+          error: {
+            code: "VALIDATION",
+            message: "Répondez à au moins un exercice avant de soumettre.",
+            details: parsed.error.flatten(),
+          },
+        },
+        { status: 400 }
+      );
     }
 
     const lesson = await db.lesson.findFirst({
@@ -212,6 +223,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       results,
     });
   } catch (e) {
-    return guardErrorResponse(e) ?? Response.json({ error: { code: "INTERNAL" } }, { status: 500 });
+    const garde = guardErrorResponse(e);
+    if (garde) return garde;
+    // Une erreur interne qui ne laisse aucune trace est indiagnosticable :
+    // le candidat voit « Soumission impossible », et il ne reste rien nulle
+    // part pour savoir pourquoi. On journalise donc la cause réelle, et on
+    // renvoie un identifiant que le candidat peut citer.
+    const reference = crypto.randomUUID().slice(0, 8);
+    console.error(`[learn/submit ${reference}]`, e);
+    return Response.json(
+      {
+        error: {
+          code: "INTERNAL",
+          message: `Correction impossible (référence ${reference}). Réessayez ; si cela persiste, transmettez-nous cette référence.`,
+        },
+      },
+      { status: 500 }
+    );
   }
 }

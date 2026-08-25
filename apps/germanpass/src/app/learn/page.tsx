@@ -54,6 +54,11 @@ type LessonView = {
   activitesTerminees: string[];
   activitesAttendues: string[];
   exercicesAccessibles: boolean;
+  meilleurScore: number | null;
+  /** Échéance de révision en cours, s'il y en a une. Portée par la leçon et
+   *  pas seulement par le résultat d'une soumission : sinon un rechargement de
+   *  page fait oublier le délai au client, alors que le serveur l'applique. */
+  prochaineTentativeLe: string | null;
 };
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -499,11 +504,12 @@ function LessonRunner({
   const audioFait = faites.includes("AUDIO");
   const exercicesOuverts = contenuFait && (!attendAudio || audioFait);
 
-  const minutesAvantEssai = resultat?.prochaineTentativeLe
-    ? Math.max(
-        0,
-        Math.ceil((new Date(resultat.prochaineTentativeLe).getTime() - maintenant) / 60_000)
-      )
+  // Après une soumission, l'échéance vient du résultat ; sinon de la leçon
+  // elle-même, pour qu'un rechargement de page ne fasse pas oublier un délai
+  // que le serveur, lui, applique toujours.
+  const echeance = resultat ? resultat.prochaineTentativeLe : lesson.prochaineTentativeLe;
+  const minutesAvantEssai = echeance
+    ? Math.max(0, Math.ceil((new Date(echeance).getTime() - maintenant) / 60_000))
     : 0;
   const enAttenteDeRevision = minutesAvantEssai > 0;
 
@@ -638,6 +644,26 @@ function LessonRunner({
                 que le serveur venait de poser un délai de révision. La leçon
                 reste affichée parce que la relire est précisément ce que le
                 délai demande. */}
+            {/* Délai retrouvé au chargement, sans résultat en mémoire : sans
+                ce bloc, l'apprenant qui recharge la page tombe sur un bouton
+                grisé qui n'explique rien. */}
+            {!resultat && enAttenteDeRevision ? (
+              <div
+                role="status"
+                className="flex items-start gap-1.5 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+              >
+                <Clock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Révision en cours
+                  {lesson.meilleurScore !== null
+                    ? ` — votre meilleur score est de ${lesson.meilleurScore} %`
+                    : ""}
+                  . Relisez la leçon : un nouvel essai sera possible dans{" "}
+                  {minutesAvantEssai} min.
+                </span>
+              </div>
+            ) : null}
+
             {resultat ? (
               <div
                 role="status"
