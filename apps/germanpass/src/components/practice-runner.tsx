@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,8 +104,12 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
   const [currentLevel, setCurrentLevel] = useState<string | null>(null);
   const [unlockedLevel, setUnlockedLevel] = useState<string | null>(null);
   const [sujets, setSujets] = useState<Sujet[]>([]);
-  const [chargementCatalogue, setChargementCatalogue] = useState(false);
+  // Vrai dès le premier rendu : sinon la liste vide s'annonce « aucun sujet »
+  // pendant qu'on attend encore le profil.
+  const [chargementCatalogue, setChargementCatalogue] = useState(true);
   const [errCatalogue, setErrCatalogue] = useState<string | null>(null);
+  const requeteRef = useRef(0);
+  const [profilCharge, setProfilCharge] = useState(false);
 
   // Objectif déclaré : niveau par défaut + signalement des niveaux hors objectif.
   useEffect(() => {
@@ -121,18 +125,33 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
           setTargetLevel(data.profile.targetLevel);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setProfilCharge(true));
   }, []);
 
   // Catalogue des sujets du niveau courant. Rechargé à chaque changement de
   // niveau, et après chaque correction pour que les scores affichés soient
   // ceux qu'on vient d'obtenir.
   const chargerCatalogue = useCallback(async () => {
+    // On n'interroge pas le catalogue avant de savoir à quel niveau est le
+    // candidat : la valeur initiale du composant est arbitraire, et la requête
+    // qu'elle déclenche est vouée à être refusée pour la plupart des comptes.
+    if (!profilCharge) return;
+
+    // Garde de concurrence. Le niveau change dès que le profil arrive : deux
+    // requêtes peuvent être en vol, et rien ne garantit l'ordre des réponses.
+    // Sans ce compteur, la réponse du niveau ABANDONNÉ écrasait celle du niveau
+    // réellement affiché — un candidat en A1 lisait « Ce niveau n'est pas
+    // encore débloqué », réponse correcte à une question qu'on ne posait plus.
+    const requete = ++requeteRef.current;
+    const estPerimee = () => requete !== requeteRef.current;
+
     setChargementCatalogue(true);
     setErrCatalogue(null);
     try {
       const res = await fetch(`/api/practice/passages?section=${section}&level=${level}`);
       const data = await res.json().catch(() => ({}));
+      if (estPerimee()) return;
       if (!res.ok) {
         setSujets([]);
         setErrCatalogue(data.error?.message ?? "Catalogue indisponible");
@@ -140,19 +159,20 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
       }
       setSujets((data as { passages: Sujet[] }).passages);
     } catch {
+      if (estPerimee()) return;
       setSujets([]);
       setErrCatalogue("Catalogue indisponible");
     } finally {
-      setChargementCatalogue(false);
+      if (!estPerimee()) setChargementCatalogue(false);
     }
-  }, [section, level]);
+  }, [section, level, profilCharge]);
 
   useEffect(() => {
     void chargerCatalogue();
   }, [chargerCatalogue]);
 
-  /** `passageId` absent = tirage aléatoire, comportement historique conservé. */
-  async function start(passageId?: string) {
+  /** Le sujet est TOUJOURS choisi : plus de tirage au sort. */
+  async function start(passageId: string) {
     setBusy(true);
     setErr(null);
     setResults(null);
@@ -160,7 +180,7 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
     const res = await fetch("/api/practice/attempts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ section, level, ...(passageId ? { passageId } : {}) }),
+      body: JSON.stringify({ section, level, passageId }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -425,23 +445,14 @@ export function PracticeRunner({ section }: { section: SectionEntrainement }) {
                 onChange={(l) => setLevel(l as Level)}
               />
             </div>
-            <Button
-              variant="outline"
-              onClick={() => void start()}
-              disabled={busy || sujets.length === 0}
-              className="h-11"
-            >
-              {busy ? "Chargement..." : "Sujet au hasard"}
-            </Button>
             </div>
 
-            {/* Le catalogue remplace le bouton aveugle. Auparavant « Démarrer »
-                tirait un sujet au sort : le candidat ne savait ni ce qu'il
-                allait travailler, ni s'il l'avait déjà fait, ni comment il
-                s'en était sorti. Refaire un sujet raté était impossible — or
-                c'est précisément ce que fait quelqu'un qui prépare un examen.
-                Le tirage aléatoire reste offert, mais comme un choix, pas
-                comme seule porte d'entrée. */}
+            {/* Le catalogue REMPLACE le bouton de démarrage, il ne le complète
+                pas. Un tirage au sort ne dit ni ce qu'on va travailler, ni si
+                on l'a déjà fait, ni comment on s'en était sorti — et il rend
+                impossible de reprendre le sujet sur lequel on a buté, qui est
+                exactement ce que fait quelqu'un qui prépare un examen.
+                On choisit son sujet, ou on ne commence pas. */}
             <CatalogueSujets
               sujets={sujets}
               chargement={chargementCatalogue}
