@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { HandwritingImport } from "@/components/HandwritingImport";
+import { estRepondue } from "@/lib/reponse-donnee";
 import { cn } from "@/lib/utils";
 
 type ExamListItem = {
@@ -42,6 +43,15 @@ type SectionData = {
   speakingTasks: { id: string; partNumber: number; title: string; instructions: string; prepTimeSec: number; speakTimeSec: number }[];
 };
 
+
+/** Libellés des sections, pour le fil d'étapes. */
+const LIBELLE_SECTION: Record<string, string> = {
+  LESEN: "Lesen",
+  HOEREN: "Hören",
+  SCHREIBEN: "Schreiben",
+  SPRECHEN: "Sprechen",
+};
+
 type Report = {
   examTitle: string;
   pendingEvaluations: boolean;
@@ -65,6 +75,12 @@ export default function ExamsPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Examen en cours : on le retient au démarrage pour connaître la liste de ses
+  // sections. `/current` ne renvoie que la section active, or le candidat a
+  // besoin de voir l'épreuve entière pour se répartir son temps.
+  const [examEnCours, setExamEnCours] = useState<ExamListItem | null>(null);
+  // Avertissement avant une soumission irréversible laissant des blancs.
+  const [alerteBlancs, setAlerteBlancs] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const submittingRef = useRef(false);
   const pollReportRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -123,6 +139,7 @@ export default function ExamsPage() {
     setData(d as SectionData);
     setResponses({});
     setWritings({});
+    setAlerteBlancs(false);
     armTimer((d as SectionData).deadline);
   }
 
@@ -130,6 +147,7 @@ export default function ExamsPage() {
     setBusy(true);
     setErr(null);
     setReport(null);
+    setExamEnCours(exams.find((e) => e.id === examId) ?? null);
     const res = await fetch(`/api/exams/${examId}/attempts`, { method: "POST" });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
@@ -201,6 +219,48 @@ export default function ExamsPage() {
 
   const mm = Math.floor(secondsLeft / 60);
   const ss = secondsLeft % 60;
+
+  // Décompte de ce qui reste à faire dans la section en cours.
+  //
+  // On ne mesure QUE ce qu'on peut mesurer honnêtement : les questions et les
+  // productions écrites vivent dans l'état de cette page. Les enregistrements
+  // Sprechen sont envoyés par le composant d'enregistrement, cette page ne les
+  // voit pas — on n'affiche donc aucun décompte pour Sprechen plutôt qu'un
+  // chiffre faux.
+  const questionsSection = data?.passages.flatMap((p) => p.questions) ?? [];
+  const questionsRepondues = questionsSection.filter((q) => estRepondue(responses[q.id])).length;
+  const redactionsFaites = (data?.writingPrompts ?? []).filter(
+    (wp) => (writings[wp.id] ?? "").trim().length > 0
+  ).length;
+
+  const totalAFaire = questionsSection.length + (data?.writingPrompts.length ?? 0);
+  const totalFait = questionsRepondues + redactionsFaites;
+  const blancsRestants = totalAFaire - totalFait;
+
+  /** Sections de l'épreuve, avec leur état. Vide si l'examen n'est pas connu. */
+  const etapes = (examEnCours?.sections ?? []).map((s, i, tous) => {
+    const indexCourant = tous.findIndex((x) => x.section === data?.section);
+    return {
+      ...s,
+      etat:
+        indexCourant === -1
+          ? ("a_venir" as const)
+          : i < indexCourant
+            ? ("terminee" as const)
+            : i === indexCourant
+              ? ("en_cours" as const)
+              : ("a_venir" as const),
+    };
+  });
+
+  /** Soumission irréversible : on prévient une fois s'il reste des blancs. */
+  function demanderSoumission() {
+    if (blancsRestants > 0 && !alerteBlancs) {
+      setAlerteBlancs(true);
+      return;
+    }
+    void submitSection(false);
+  }
 
   function renderQuestion(q: SanQuestion) {
     const current = responses[q.id];
@@ -392,25 +452,109 @@ export default function ExamsPage() {
 
       {data ? (
         <>
-          <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border bg-background p-3 shadow-sm">
-            <span className="font-bold">{data.section}</span>
-            <span className={secondsLeft < 120 ? "font-bold text-destructive" : "font-medium"} role="timer">
-              ⏱ {mm}:{String(ss).padStart(2, "0")}
-            </span>
+          <div className="sticky top-0 z-10 space-y-2 rounded-md border bg-background p-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-bold">{LIBELLE_SECTION[data.section] ?? data.section}</span>
+              <div className="flex items-center gap-3">
+                {/* Ce qui reste à faire, avant que la soumission soit
+                    irréversible. Sans ce chiffre, on pouvait terminer une
+                    section en ayant sauté une question sans le savoir. */}
+                {totalAFaire > 0 ? (
+                  <span
+                    className={cn(
+                      "text-sm tabular-nums",
+                      blancsRestants === 0 ? "text-success" : "text-muted-foreground"
+                    )}
+                  >
+                    {totalFait} / {totalAFaire} {data.writingPrompts.length > 0 && questionsSection.length === 0 ? "rédigée·s" : "répondue·s"}
+                  </span>
+                ) : null}
+                <span
+                  className={secondsLeft < 120 ? "font-bold text-destructive" : "font-medium"}
+                  role="timer"
+                >
+                  ⏱ {mm}:{String(ss).padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+
+            {/* L'épreuve entière, pas seulement la section en cours : savoir
+                qu'il reste 60 min de Schreiben après ce Lesen fait partie de
+                la gestion du temps, qui est une compétence d'examen. */}
+            {etapes.length > 1 ? (
+              <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
+                {etapes.map((e, i) => (
+                  <li key={e.section} className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+                        e.etat === "en_cours" && "bg-primary font-medium text-primary-foreground",
+                        e.etat === "terminee" && "bg-success/15 text-success",
+                        e.etat === "a_venir" && "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {e.etat === "terminee" ? (
+                        <Check aria-hidden="true" className="h-3 w-3" />
+                      ) : null}
+                      {LIBELLE_SECTION[e.section] ?? e.section}
+                      <span className="opacity-70">{e.durationMin} min</span>
+                    </span>
+                    {i < etapes.length - 1 ? (
+                      <span aria-hidden="true" className="text-muted-foreground/40">
+                        →
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
           </div>
 
-          {data.passages.map((p) => (
-            <Card key={p.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{p.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {p.body ? <p className="whitespace-pre-wrap text-sm">{p.body}</p> : null}
-                {p.audioUrl ? <ExamAudio attemptId={data.attemptId} url={p.audioUrl} maxListens={p.maxListens} /> : null}
-                {p.questions.map(renderQuestion)}
-              </CardContent>
-            </Card>
-          ))}
+          {data.passages.map((p) => {
+            // Texte et questions CÔTE À CÔTE en Lesen. Empilés, ils obligent le
+            // candidat à faire l'ascenseur entre le texte et la question — un
+            // handicap que l'épreuve papier ne lui impose pas, puisqu'il a les
+            // deux sous les yeux. Le texte reste collé en haut pendant qu'on
+            // descend les questions.
+            //
+            // Réservé à Lesen : en Hören il n'y a pas de texte (le script n'est
+            // jamais envoyé au candidat), et sur mobile la colonne unique
+            // reprend le dessus.
+            const deuxColonnes = data.section === "LESEN" && Boolean(p.body);
+            return (
+              <Card key={p.id}>
+                <CardHeader>
+                  <CardTitle className="text-base">{p.title}</CardTitle>
+                </CardHeader>
+                <CardContent
+                  className={cn(
+                    "space-y-3",
+                    deuxColonnes && "lg:grid lg:grid-cols-2 lg:items-start lg:gap-8 lg:space-y-0"
+                  )}
+                >
+                  {p.body ? (
+                    <div
+                      className={cn(
+                        deuxColonnes &&
+                          "lg:sticky lg:top-32 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto lg:pr-2"
+                      )}
+                    >
+                      {/* `text-base` et non `text-sm` : c'est une épreuve de
+                          lecture de 25 minutes, le confort de lecture en fait
+                          partie. */}
+                      <p className="whitespace-pre-wrap text-base leading-relaxed">{p.body}</p>
+                    </div>
+                  ) : null}
+                  <div className="space-y-3">
+                    {p.audioUrl ? (
+                      <ExamAudio attemptId={data.attemptId} url={p.audioUrl} maxListens={p.maxListens} />
+                    ) : null}
+                    {p.questions.map(renderQuestion)}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
 
           {data.writingPrompts.map((wp) => (
             <Card key={wp.id}>
@@ -456,9 +600,33 @@ export default function ExamsPage() {
             </Card>
           ))}
 
-          <Button size="lg" onClick={() => void submitSection(false)} disabled={busy}>
-            {busy ? "Soumission..." : "Terminer cette épreuve →"}
-          </Button>
+          {/* Un clic terminait la section sans rien demander, définitivement.
+              On prévient UNE fois s'il reste des blancs, puis on obéit : le
+              candidat reste maître de sa copie, mais il sait ce qu'il fait. */}
+          {alerteBlancs && blancsRestants > 0 ? (
+            <div
+              role="alert"
+              className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-4"
+            >
+              <p className="text-sm">
+                Il reste <strong>{blancsRestants}</strong>{" "}
+                {blancsRestants > 1 ? "réponses vides" : "réponse vide"} sur {totalAFaire}. Une fois
+                la section soumise, vous ne pourrez plus y revenir.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => setAlerteBlancs(false)} disabled={busy}>
+                  Revenir aux questions
+                </Button>
+                <Button onClick={() => void submitSection(false)} disabled={busy}>
+                  {busy ? "Soumission..." : "Soumettre quand même"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="lg" onClick={demanderSoumission} disabled={busy}>
+              {busy ? "Soumission..." : "Terminer cette épreuve →"}
+            </Button>
+          )}
           <p className="text-xs text-muted-foreground">
             Pas de retour arrière possible. Soumission automatique à expiration du temps.
           </p>
