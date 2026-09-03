@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
-import { billing, FAPSHI_PROVIDER_NAME } from "@kebrane/core";
+import { billing } from "@kebrane/core";
+import { ensurePaymentProviders, FAPSHI } from "@/lib/payments";
 
 /**
  * Webhook Fapshi (KB-13) — notification serveur-à-serveur d'un changement d'état.
@@ -48,7 +49,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   try {
-    await billing.handleWebhook(FAPSHI_PROVIDER_NAME, payload);
+    await ensurePaymentProviders();
+    await billing.handleWebhook(FAPSHI, payload);
   } catch (err) {
     console.error("[fapshi-ipn] échec de traitement :", err);
     return new Response("Webhook handler error", { status: 500 });

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOffers, getPaymentMethods, ACTIVATION_STEPS } from "@/lib/pricing";
-import { getPaymentProvider } from "@kebrane/core";
 import { startMomoCheckout } from "./checkout-actions";
+import { momoAvailable as isMomoAvailable } from "@/lib/payments";
 
 // Le catalogue vit en base (KB-13) : la page ne peut pas être figée au build.
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export default async function PricingPage({
   // Catalogue Core, avec repli sur la grille locale si la base ne répond pas.
   const { offers } = await getOffers();
   // Le bouton de paiement automatique n'apparait que si un PSP est configure.
-  const momoAvailable = getPaymentProvider("paydunya") !== null;
+  const momoAvailable = await isMomoAvailable();
 
   return (
     <main className="container max-w-4xl space-y-8 py-10">

@@ -10,7 +10,8 @@
  *   pnpm --filter @kebrane/germanpass fapshi:smoke
  * Prérequis : FAPSHI_API_KEY / FAPSHI_API_USER (+ FAPSHI_MODE) dans apps/germanpass/.env
  */
-import { fapshiFromEnv, PaymentChannel } from "@kebrane/core";
+import { PaymentChannel } from "@kebrane/core";
+import { fapshiFromEnv } from "@kebrane/core/providers/fapshi";
 
 async function main(): Promise<void> {
   const provider = fapshiFromEnv();

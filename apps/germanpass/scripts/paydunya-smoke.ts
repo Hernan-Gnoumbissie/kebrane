@@ -11,7 +11,8 @@
  *   pnpm --filter @kebrane/germanpass paydunya:smoke
  * Prérequis : PAYDUNYA_* renseignées dans apps/germanpass/.env
  */
-import { payDunyaFromEnv, PaymentChannel } from "@kebrane/core";
+import { PaymentChannel } from "@kebrane/core";
+import { payDunyaFromEnv } from "@kebrane/core/providers/paydunya";
 
 async function main(): Promise<void> {
   const provider = payDunyaFromEnv();

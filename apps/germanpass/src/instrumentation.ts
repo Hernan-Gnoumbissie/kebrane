@@ -15,22 +15,14 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { bootstrapKebrane, registerPaymentProvider, payDunyaFromEnv } = await import(
-    "@kebrane/core"
-  );
+  const { bootstrapKebrane } = await import("@kebrane/core");
   await bootstrapKebrane();
 
-  // PSP de la v1 (KB-13) — PayDunya (MTN MoMo). Orange Money reste sur le filet
-  // manuel en v1. `payDunyaFromEnv` renvoie null si les clés manquent : on reste
-  // alors sur le filet manuel (manual-proof) sans faire échouer le démarrage.
-  //
-  // Fapshi (agrégateur unique MTN + Orange) est écrit et prêt (`fapshiFromEnv`,
-  // route /api/webhooks/fapshi), mais NON enregistré ici : son onboarding exige
-  // une vérification d'identité en cours (passeport en attente de confirmation
-  // du support). Bascule prévue à une mise à jour future — remplacer la ligne
-  // ci-dessous par `fapshiFromEnv()` une fois les clés Fapshi disponibles.
-  const paydunya = payDunyaFromEnv();
-  if (paydunya) registerPaymentProvider(paydunya);
+  // NB : les fournisseurs de paiement (PSP) ne sont PAS enregistrés ici. Les y
+  // enregistrer forçait l'instrumentation à importer les adaptateurs (node:crypto),
+  // que Next compile AUSSI pour le runtime Edge — d'où un échec de compilation.
+  // L'enregistrement se fait desormais au POINT D'USAGE, idempotent, via
+  // `ensurePaymentProviders()` (apps/germanpass/src/lib/payments.ts).
 }
 
 export async function onRequestError(

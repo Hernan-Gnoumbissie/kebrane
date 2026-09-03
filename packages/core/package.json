@@ -7,7 +7,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./notifications-smtp": "./src/notifications-smtp.ts"
+    "./notifications-smtp": "./src/notifications-smtp.ts",
+    "./providers/paydunya": "./src/providers/paydunya.ts",
+    "./providers/fapshi": "./src/providers/fapshi.ts"
   },
   "scripts": {
     "seed": "tsx --env-file-if-exists=../db/.env scripts/seed.ts",

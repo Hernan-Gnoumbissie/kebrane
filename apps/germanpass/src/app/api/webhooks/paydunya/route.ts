@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { billing, PAYDUNYA_PROVIDER_NAME } from "@kebrane/core";
+import { billing } from "@kebrane/core";
+import { ensurePaymentProviders, PAYDUNYA } from "@/lib/payments";
 
 /**
  * IPN PayDunya (KB-13) — notification serveur-à-serveur de l'état d'un paiement.
@@ -63,7 +64,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   try {
-    await billing.handleWebhook(PAYDUNYA_PROVIDER_NAME, payload);
+    await ensurePaymentProviders();
+    await billing.handleWebhook(PAYDUNYA, payload);
   } catch (err) {
     console.error("[paydunya-ipn] échec de traitement :", err);
     return new Response("Webhook handler error", { status: 500 });

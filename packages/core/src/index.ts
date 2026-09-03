@@ -77,21 +77,13 @@ export {
   type WebhookResult,
 } from "./billing";
 
-// Adaptateur PayDunya (KB-13) — PSP mobile money retenu le 2 sept. 2026.
-export {
-  createPayDunyaProvider,
-  payDunyaFromEnv,
-  PAYDUNYA_PROVIDER_NAME,
-  type PayDunyaConfig,
-} from "./providers/paydunya";
-
-// Adaptateur Fapshi (KB-13) — agregateur unique MTN + Orange Money (3 sept. 2026).
-export {
-  createFapshiProvider,
-  fapshiFromEnv,
-  FAPSHI_PROVIDER_NAME,
-  type FapshiConfig,
-} from "./providers/fapshi";
+// Adaptateurs PSP (KB-13) : PAS ré-exportés ici, à dessein. Un import statique
+// depuis l'index les tirerait dans le graphe Edge (via lib/kebrane), où leurs
+// builtins Node (node:crypto) ne sont pas supportés — d'où un échec de
+// compilation de l'instrumentation. Ils sont exposés en SOUS-CHEMIN
+// (`@kebrane/core/providers/paydunya` | `/fapshi`) et importés DYNAMIQUEMENT au
+// point d'usage (cf. apps/germanpass/src/lib/payments.ts). Même principe que
+// `./notifications-smtp` pour nodemailer (KB-35).
 
 type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
 

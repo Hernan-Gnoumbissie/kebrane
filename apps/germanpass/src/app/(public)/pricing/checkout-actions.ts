@@ -17,15 +17,15 @@ import { redirect } from "next/navigation";
 import { billing, PaymentChannel, getPaymentProvider } from "@kebrane/core";
 import { GuardError, requireAuthenticated } from "@/lib/guards";
 import { GERMANPASS_SLUG, getKebranePlans, resolveKebraneAccount } from "@/lib/kebrane";
-
-const PROVIDER = "paydunya";
+import { ensurePaymentProviders, PAYDUNYA } from "@/lib/payments";
 
 export async function startMomoCheckout(formData: FormData): Promise<void> {
   const planSlug = String(formData.get("planSlug") ?? "").trim();
   if (!planSlug) redirect("/pricing");
 
   // PSP automatique absent (pas de clés en env) → parcours manuel.
-  if (!getPaymentProvider(PROVIDER)) redirect("/account?paiement=manuel");
+  await ensurePaymentProviders();
+  if (!getPaymentProvider(PAYDUNYA)) redirect("/account?paiement=manuel");
 
   // Il faut un compte pour rattacher le paiement. Non connecté → login, retour /pricing.
   let user;
@@ -55,7 +55,7 @@ export async function startMomoCheckout(formData: FormData): Promise<void> {
       currency: "XAF",
       channel: PaymentChannel.MTN_MOMO,
     },
-    PROVIDER,
+    PAYDUNYA,
   );
 
   const url = (payment.metadata as { redirectUrl?: string } | null)?.redirectUrl;
