@@ -70,16 +70,30 @@ export default async function PricingPage({
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {offers.map((o) => (
-          <Card key={o.days} className={o.highlight ? "border-primary shadow-md" : undefined}>
-            <CardHeader>
-              <CardTitle className="text-base">{o.name}</CardTitle>
-              <CardDescription>{o.days} jours</CardDescription>
+          <Card
+            key={o.days}
+            className={`flex h-full flex-col ${
+              o.highlight ? "border-primary shadow-md ring-1 ring-primary/30" : ""
+            }`}
+          >
+            <CardHeader className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base">{o.name}</CardTitle>
+                {o.highlight ? (
+                  <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                    Populaire
+                  </span>
+                ) : null}
+              </div>
+              <CardDescription>{o.days} jours d&apos;accès</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-2xl font-bold">
-                {XAF.format(o.priceXaf)} <span className="text-sm font-normal">FCFA</span>
+
+            <CardContent className="flex flex-1 flex-col gap-2">
+              <p className="text-2xl font-bold tracking-tight">
+                {XAF.format(o.priceXaf)}{" "}
+                <span className="text-sm font-normal text-muted-foreground">FCFA</span>
               </p>
               {o.corrections ? (
                 <p className="text-sm font-medium text-primary">
@@ -87,14 +101,16 @@ export default async function PricingPage({
                 </p>
               ) : null}
               <p className="text-sm text-muted-foreground">{o.description}</p>
+
               {momoAvailable && o.slug ? (
-                <form action={startMomoCheckout} className="pt-2">
+                <form action={startMomoCheckout} className="mt-auto pt-4">
                   <input type="hidden" name="planSlug" value={o.slug} />
                   <button
                     type="submit"
-                    className={`${buttonVariants({ size: "sm" })} w-full`}
+                    aria-label={`Payer la formule ${o.name}, ${XAF.format(o.priceXaf)} FCFA, par Mobile Money`}
+                    className={`${buttonVariants()} w-full`}
                   >
-                    Payer par MTN Mobile Money
+                    Payer {XAF.format(o.priceXaf)} FCFA
                   </button>
                 </form>
               ) : null}
@@ -105,9 +121,10 @@ export default async function PricingPage({
 
       {momoAvailable ? (
         <p className="text-sm text-muted-foreground">
-          Le bouton règle instantanément par <strong>MTN Mobile Money</strong>. Pour
-          Orange Money, utilisez les coordonnées ci-dessous et envoyez votre preuve de
-          paiement.
+          Le paiement en ligne se règle par <strong>MTN Mobile Money</strong> : vous êtes
+          redirigé pour confirmer, et votre accès s&apos;ouvre automatiquement. Pour{" "}
+          <strong>Orange Money</strong>, réglez via les coordonnées ci-dessous et envoyez
+          votre preuve.
         </p>
       ) : null}
 
@@ -162,8 +179,8 @@ export default async function PricingPage({
       </Card>
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/account" className={buttonVariants()}>
-          Envoyer ma preuve de paiement
+        <Link href="/account" className={buttonVariants({ variant: "outline" })}>
+          Payer autrement (envoyer une preuve)
         </Link>
         <Link href="/login" className={buttonVariants({ variant: "outline" })}>
           Se connecter
