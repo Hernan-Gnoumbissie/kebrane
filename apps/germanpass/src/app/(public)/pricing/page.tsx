@@ -2,6 +2,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOffers, getPaymentMethods, ACTIVATION_STEPS } from "@/lib/pricing";
+import { getPaymentProvider } from "@kebrane/core";
+import { startMomoCheckout } from "./checkout-actions";
 
 // Le catalogue vit en base (KB-13) : la page ne peut pas être figée au build.
 export const dynamic = "force-dynamic";
@@ -19,6 +21,8 @@ export default async function PricingPage({
   const paymentMethods = getPaymentMethods();
   // Catalogue Core, avec repli sur la grille locale si la base ne répond pas.
   const { offers } = await getOffers();
+  // Le bouton de paiement automatique n'apparait que si un PSP est configure.
+  const momoAvailable = getPaymentProvider("paydunya") !== null;
 
   return (
     <main className="container max-w-4xl space-y-8 py-10">
@@ -83,10 +87,29 @@ export default async function PricingPage({
                 </p>
               ) : null}
               <p className="text-sm text-muted-foreground">{o.description}</p>
+              {momoAvailable && o.slug ? (
+                <form action={startMomoCheckout} className="pt-2">
+                  <input type="hidden" name="planSlug" value={o.slug} />
+                  <button
+                    type="submit"
+                    className={`${buttonVariants({ size: "sm" })} w-full`}
+                  >
+                    Payer par MTN Mobile Money
+                  </button>
+                </form>
+              ) : null}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {momoAvailable ? (
+        <p className="text-sm text-muted-foreground">
+          Le bouton règle instantanément par <strong>MTN Mobile Money</strong>. Pour
+          Orange Money, utilisez les coordonnées ci-dessous et envoyez votre preuve de
+          paiement.
+        </p>
+      ) : null}
 
       <Card>
         <CardHeader>

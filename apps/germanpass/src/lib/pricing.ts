@@ -9,6 +9,8 @@ import { getKebranePlans, estimatedMicroUsd } from "@/lib/kebrane";
 
 export type Offer = {
   days: 7 | 30 | 90 | 365;
+  /** Slug de l'offre en base (KB-13). Absent sur le repli local (pas de paiement auto). */
+  slug?: string;
   name: string;
   priceXaf: number; // FCFA
   description: string;
@@ -79,6 +81,7 @@ export async function getOffers(): Promise<{ offers: Offer[]; source: "core" | "
     source: "core",
     offers: plans.map((p) => ({
       days: p.durationDays as Offer["days"],
+      slug: p.slug,
       name: p.name,
       priceXaf: p.priceAmount,
       description: p.description ?? "",

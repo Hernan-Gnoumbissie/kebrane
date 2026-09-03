@@ -166,8 +166,18 @@ export const billing = {
         channel: request.channel,
         phone: request.phone ?? null,
         status: persistedStatus,
+        // On conserve l'URL de redirection éventuelle DANS la métadonnée : c'est
+        // ainsi que l'appelant (le checkout) récupère la page de paiement à
+        // ouvrir, et qu'un paiement inachevé pourra être repris plus tard.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata: (result.metadata ?? null) as any,
+        metadata: (result.redirectUrl
+          ? {
+              ...(result.metadata && typeof result.metadata === "object"
+                ? (result.metadata as Record<string, unknown>)
+                : {}),
+              redirectUrl: result.redirectUrl,
+            }
+          : (result.metadata ?? null)) as any,
       },
     });
 
