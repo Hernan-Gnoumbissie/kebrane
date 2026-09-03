@@ -14,7 +14,6 @@
 // ouverture de l'accès, journal comptable — reste dans `billing` et n'est pas
 // réécrite ici. C'est la règle posée par KB-13 : changer de PSP = un adaptateur,
 // rien d'autre.
-import crypto from "node:crypto";
 import {
   PaymentChannel,
   PaymentStatus,
@@ -74,12 +73,16 @@ function headers(config: PayDunyaConfig): Record<string, string> {
  * notification dont le hash ne colle pas n'est PAS de PayDunya et doit être
  * ignorée (retour `null`), jamais traitée comme un échec de paiement.
  */
-function hashMatches(config: PayDunyaConfig, received: unknown): boolean {
+async function hashMatches(config: PayDunyaConfig, received: unknown): Promise<boolean> {
   if (typeof received !== "string" || received.length === 0) return false;
-  const expected = crypto.createHash("sha512").update(config.masterKey).digest("hex");
+  // Import DYNAMIQUE de node:crypto : garde ce builtin Node hors du bundle Edge
+  // que Next compile pour l'instrumentation (un import top-level y ferait
+  // échouer le démarrage — cf. KB-35). Ce code ne s'exécute qu'en runtime Node.
+  const { createHash, timingSafeEqual } = await import("node:crypto");
+  const expected = createHash("sha512").update(config.masterKey).digest("hex");
   const a = Buffer.from(expected);
   const b = Buffer.from(received);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** Traduit le statut PayDunya vers le vocabulaire de `billing`. */
@@ -184,7 +187,7 @@ export function createPayDunyaProvider(config: PayDunyaConfig): PaymentProvider 
       const data = pick(payload, "data") ?? payload;
 
       // Authenticité d'abord : sans hash valide, ce n'est pas PayDunya.
-      if (!hashMatches(config, pick(data, "hash"))) return null;
+      if (!(await hashMatches(config, pick(data, "hash")))) return null;
 
       const providerRef = pick(data, "invoice", "token") ?? pick(data, "token");
       if (typeof providerRef !== "string" || providerRef.length === 0) return null;
