@@ -15,8 +15,16 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { bootstrapKebrane } = await import("@kebrane/core");
+  const { bootstrapKebrane, registerPaymentProvider, payDunyaFromEnv } = await import(
+    "@kebrane/core"
+  );
   await bootstrapKebrane();
+
+  // Adaptateur PayDunya (KB-13). `payDunyaFromEnv` renvoie null si les clés
+  // manquent : on reste alors sur le filet manuel (manual-proof) sans faire
+  // échouer le démarrage.
+  const paydunya = payDunyaFromEnv();
+  if (paydunya) registerPaymentProvider(paydunya);
 }
 
 export async function onRequestError(

@@ -77,6 +77,14 @@ export {
   type WebhookResult,
 } from "./billing";
 
+// Adaptateur PayDunya (KB-13) — PSP mobile money retenu le 2 sept. 2026.
+export {
+  createPayDunyaProvider,
+  payDunyaFromEnv,
+  PAYDUNYA_PROVIDER_NAME,
+  type PayDunyaConfig,
+} from "./providers/paydunya";
+
 type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
 
 /** Slugs des produits de la maison (registre KB-09). */

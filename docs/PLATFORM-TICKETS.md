@@ -306,10 +306,19 @@ interchangeable. Marché visé : mobile money Cameroun (**MTN MoMo + Orange Mone
 - **Repli documenté : Fapshi** — le mieux documenté pour « entreprise non enregistrée » (CNI + selfie + description). Si KPay exige des papiers ou gèle les fonds, on **remplace l'adaptateur** sans toucher au reste.
 - **Filet de lancement : le flux existant de GermanPass** (preuve de paiement mobile money + **validation admin**) reste opérationnel pendant l'intégration du PSP — on peut encaisser **avant** que l'adaptateur soit prêt.
 
+**Décision (2 septembre 2026) — KPay écarté, PayDunya retenu.** KPay exige une
+**structure immatriculée** et une **vérification par URL** : incompatible avec un
+entrepreneur individuel non enregistré (le mur même qu'on voulait éviter). On retient
+**PayDunya**, déjà **intégré et éprouvé** dans le produit « Permis Cameroun »
+(Prepa) — donc zéro inconnue d'onboarding et un flux réutilisable. Fapshi reste le repli
+si un compte Kebrane distinct est refusé. ⚠ Le canal **PayPal** (diaspora zone euro) n'est
+couvert par aucun agrégateur mobile money : ce sera un adaptateur/offre séparé, à décider
+plus tard — l'interface le permet sans y toucher maintenant.
+
 **État (4 août 2026) : le module `billing` de Core est fait ; il reste ce qui dépend de toi.**
 - [x] `PaymentProvider` (interface) dans `@kebrane/core` (`src/billing.ts`) : `createCollection`, `handleWebhook`, + registre d'adaptateurs (`registerPaymentProvider`).
 - [x] **Adaptateur « preuve manuelle »** (`manual-proof`) encapsulant le flux admin GermanPass actuel — le filet de lancement passe par la même interface que les futurs PSP.
-- [ ] **Adaptateur PSP concret** (KPay, ou Fapshi) — *bloqué par les 3 vérifs, qui sont des démarches auprès du fournisseur.*
+- [~] **Adaptateur PSP concret — PayDunya** : écrit dans `packages/core/src/providers/paydunya.ts` (`createPayDunyaProvider`, `payDunyaFromEnv`), exporté par `index.ts`, **typecheck de Core au vert (2 sept. 2026)**. Reprend le flux Prepa (`checkout-invoice/create` → `createCollection` ; IPN vérifié par SHA-512 de la MASTER-KEY → `handleWebhook`). **Reste** (démarches, pas du code) : (a) clés PayDunya pour Kebrane — compte dédié **ou** réutilisation du store Prepa, décision PO ; (b) enregistrer l'adaptateur au bootstrap de chaque app (`registerPaymentProvider(payDunyaFromEnv())`) + route IPN `POST /api/webhooks/paydunya` qui décode le form-urlencoded et appelle `billing.handleWebhook('paydunya', payload)` ; (c) variables d'env (voir docstring de `paydunya.ts`) ; (d) une transaction de bout en bout en sandbox puis en live.
 - [x] Confirmation → `access.sync({ status: ACTIVE, plan })`.
 - [ ] Bascule du gating en **mode enforce** (`KEBRANE_ACCESS_ENFORCE=1`, cf. KB-08) — à faire quand un PSP encaisse réellement, pas avant : passer le drapeau maintenant couperait l'accès à des membres à jour.
 - [ ] **Paywall** + page `/tarifs` — *bloqué par la grille tarifaire (montants, offres), qui ne s'invente pas.*
@@ -1408,8 +1417,8 @@ germanophone) : c'est un chantier distinct, plus lourd, pour le vrai lancement.
   - **Vitrine illustrée : arrêtée volontairement.** La tentative de captures produit a révélé KB-35 (fuite `nodemailer` dans Core, build webpack GermanPass cassé). Le correctif de Core passe avant l'illustration — voir **Phase 10, KB-35 → KB-37**.
   - **Veille** — `geekinstitut.com` (Douala) chevauche GermanPass *et* la future division Arrival (visa, admission, compte bloqué, traduction). Leurs cours encadrés sont à 100 000–150 000 FCFA le niveau, soit un autre marché que l'entraînement autonome : à expliciter dans le positionnement. À noter, leur page Prix garde les montants dans du **texte libre** et affiche `-` en colonne prix — exactement ce que la décision KB-34 évite.
 - **⚠ Avant mise en ligne commerciale** : faire relire les textes légaux par un juriste (cf. avertissement de `docs/content/README.md`) — ces pages sont des gabarits documentés, pas un avis juridique.
-- **Bloqués côté PO, pas côté code** : 3 vérifications KPay → adaptateur PSP (KB-13) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13). *(Hébergement/Postgres prod : tranché — IONOS auto-géré, 22 août 2026.)*
-- **Décisions PO ouvertes** : paiement — *approche tranchée* (abstraction `PaymentProvider`, KPay candidat n°1, Fapshi repli, filet preuve+admin) ; reste à **confirmer l'adaptateur** via les 3 vérifs KPay (KB-13) · accent officiel GermanPass (KB-02/09) · confirmation topologie domaines (KB-10/21). *(Grille tarifaire → éditable en admin, KB-34 ; PostgreSQL prod → IONOS, tranché.)*
+- **Bloqués côté PO, pas côté code** : clés PayDunya + enregistrement de l'adaptateur (KB-13, adaptateur écrit le 2 sept. 2026) · SPF/DKIM/DMARC sur les deux domaines (KB-21) · mesure des coûts IA réels avant de basculer les deux drapeaux d'enforcement (KB-13). *(Hébergement/Postgres prod : tranché — IONOS auto-géré, 22 août 2026 ; PSP : tranché — PayDunya, 2 sept. 2026 ; KPay écarté.)*
+- **Décisions PO ouvertes** : paiement — *PSP tranché : PayDunya (2 sept. 2026), KPay écarté (immatriculation + vérif URL exigées), Fapshi repli* ; reste à fournir les **clés PayDunya** (compte dédié ou réutilisation du store Prepa) et à brancher l'adaptateur + IPN (KB-13) · canal **PayPal** diaspora à décider (adaptateur séparé) · accent officiel GermanPass (KB-02/09) · confirmation topologie domaines (KB-10/21). *(Grille tarifaire → éditable en admin, KB-34 ; PostgreSQL prod → IONOS, tranché.)*
 - **Décisions PO tranchées** : ~~session unique côté Kebrane~~ → **non** (KB-17, 2 août 2026) · ~~moyen de paiement~~ → **mobile money, MTN en tête ; Stripe écarté** (KB-13, 4 août 2026).
 
 ### KB-39 · Session héritée de next-auth : tout l'espace admin inaccessible
