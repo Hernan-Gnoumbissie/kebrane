@@ -22,6 +22,7 @@
     "ai:cost": "tsx scripts/ai-cost-report.ts",
     "kebrane:metrics": "tsx scripts/publish-metrics.ts",
     "paydunya:smoke": "tsx --env-file-if-exists=.env scripts/paydunya-smoke.ts",
+    "fapshi:smoke": "tsx --env-file-if-exists=.env scripts/fapshi-smoke.ts",
     "db:studio": "prisma studio",
     "worker": "tsx src/worker/index.ts",
     "postinstall": "prisma generate"

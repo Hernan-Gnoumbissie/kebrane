@@ -85,6 +85,14 @@ export {
   type PayDunyaConfig,
 } from "./providers/paydunya";
 
+// Adaptateur Fapshi (KB-13) — agregateur unique MTN + Orange Money (3 sept. 2026).
+export {
+  createFapshiProvider,
+  fapshiFromEnv,
+  FAPSHI_PROVIDER_NAME,
+  type FapshiConfig,
+} from "./providers/fapshi";
+
 type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
 
 /** Slugs des produits de la maison (registre KB-09). */

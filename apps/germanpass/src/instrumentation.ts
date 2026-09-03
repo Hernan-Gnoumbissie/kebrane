@@ -20,9 +20,15 @@ export async function register(): Promise<void> {
   );
   await bootstrapKebrane();
 
-  // Adaptateur PayDunya (KB-13). `payDunyaFromEnv` renvoie null si les clés
-  // manquent : on reste alors sur le filet manuel (manual-proof) sans faire
-  // échouer le démarrage.
+  // PSP de la v1 (KB-13) — PayDunya (MTN MoMo). Orange Money reste sur le filet
+  // manuel en v1. `payDunyaFromEnv` renvoie null si les clés manquent : on reste
+  // alors sur le filet manuel (manual-proof) sans faire échouer le démarrage.
+  //
+  // Fapshi (agrégateur unique MTN + Orange) est écrit et prêt (`fapshiFromEnv`,
+  // route /api/webhooks/fapshi), mais NON enregistré ici : son onboarding exige
+  // une vérification d'identité en cours (passeport en attente de confirmation
+  // du support). Bascule prévue à une mise à jour future — remplacer la ligne
+  // ci-dessous par `fapshiFromEnv()` une fois les clés Fapshi disponibles.
   const paydunya = payDunyaFromEnv();
   if (paydunya) registerPaymentProvider(paydunya);
 }
