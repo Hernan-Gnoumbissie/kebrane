@@ -22,8 +22,9 @@ export function computeNewAccessUntil(
 export async function activateUser(params: {
   userId: string;
   days: GrantDays | number;
-  adminId: string;
-  reason: string; // proof:<id> | promo:<code> | manual
+  /** Admin auteur de l'octroi, ou omis pour un octroi SYSTÈME (paiement en ligne). */
+  adminId?: string;
+  reason: string; // proof:<id> | promo:<code> | manual | paydunya:<ref>
 }): Promise<Date> {
   const user = await db.user.findUniqueOrThrow({ where: { id: params.userId } });
   const newUntil = computeNewAccessUntil(user.accessUntil, params.days);
@@ -34,7 +35,7 @@ export async function activateUser(params: {
   // Miroir dans Core : le hub Kebrane affiche « Actif » pour GermanPass (KB-08).
   syncKebraneAccessInBackground({ ...user, status: "ACTIVE", accessUntil: newUntil });
   await audit({
-    actorId: params.adminId,
+    actorId: params.adminId ?? null,
     action: "user.activate",
     targetType: "User",
     targetId: user.id,

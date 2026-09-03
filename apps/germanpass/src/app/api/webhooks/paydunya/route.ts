@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { billing } from "@kebrane/core";
 import { ensurePaymentProviders, PAYDUNYA } from "@/lib/payments";
+import { grantLocalAccessForPayment } from "@/lib/grant-access";
 
 /**
  * IPN PayDunya (KB-13) — notification serveur-à-serveur de l'état d'un paiement.
@@ -65,7 +66,18 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   try {
     await ensurePaymentProviders();
-    await billing.handleWebhook(PAYDUNYA, payload);
+    const confirmed = await billing.handleWebhook(PAYDUNYA, payload);
+    // Renvoyé UNIQUEMENT sur une confirmation fraîche (billing.confirm est
+    // idempotent) : on ouvre alors l'accès LOCAL GermanPass, une seule fois.
+    if (confirmed) {
+      try {
+        await grantLocalAccessForPayment(confirmed);
+      } catch (err) {
+        // Core est déjà confirmé ; un rejeu ne réessaierait pas l'octroi. On
+        // ne renvoie donc PAS 500 : on loggue pour rattrapage manuel.
+        console.error("[paydunya-ipn] octroi d'accès local échoué :", err);
+      }
+    }
   } catch (err) {
     console.error("[paydunya-ipn] échec de traitement :", err);
     return new Response("Webhook handler error", { status: 500 });

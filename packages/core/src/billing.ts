@@ -200,10 +200,12 @@ export const billing = {
   /**
    * Confirme un paiement et OUVRE l'accès au produit.
    *
-   * **Idempotent** : c'est l'exigence centrale. Les PSP rejouent leurs webhooks,
-   * et un admin peut cliquer deux fois. Un paiement déjà confirmé est donc rendu
-   * tel quel, sans réécriture ni second événement — sinon le journal comptable
-   * compterait deux encaissements pour un seul.
+   * **Idempotent** : c'est l'exigence centrale. Les PSP rejouent leurs webhooks.
+   * Un paiement déjà confirmé n'est ni réécrit ni re-journalisé — et cette
+   * méthode renvoie alors `null`. Elle ne renvoie le paiement QUE lorsqu'elle a
+   * réellement effectué la confirmation : ainsi les effets de bord côté appelant
+   * (p. ex. l'ouverture d'accès LOCALE du produit dans la route webhook) ne
+   * s'exécutent qu'UNE fois, même si la notification arrive en double.
    */
   async confirm(
     providerName: string,
@@ -214,7 +216,7 @@ export const billing = {
       where: { provider_providerRef: { provider: providerName, providerRef } },
     });
     if (!payment) return null;
-    if (payment.status === PaymentStatus.CONFIRMED) return payment;
+    if (payment.status === PaymentStatus.CONFIRMED) return null;
 
     const confirmed = await db.payment.update({
       where: { id: payment.id },

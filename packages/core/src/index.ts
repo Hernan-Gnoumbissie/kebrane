@@ -114,6 +114,11 @@ export const accounts = {
     return db.account.findUnique({ where: { email: email.toLowerCase() } });
   },
 
+  /** Résout un compte par son id Kebrane (mapping paiement → compte). */
+  findById(id: string): Promise<Account | null> {
+    return db.account.findUnique({ where: { id } });
+  },
+
   /**
    * Note le passage d'un compte (KB-15). Silencieux et non bloquant : c'est un
    * indicateur, il ne doit jamais faire échouer une requête de l'utilisateur.
