@@ -50,11 +50,22 @@ function isPaidNow(
  * voulu, pas une erreur.
  */
 async function ensureAccessRow(accountId: string, productId: string): Promise<void> {
+  // Cas courant : la ligne existe déjà (posée par le miroir d'accès). On le
+  // vérifie d'abord, sinon l'INSERT échouerait à CHAQUE réservation et Prisma
+  // journaliserait l'erreur — une fausse alerte par correction rendue.
+  const existante = await db.productAccess.findUnique({
+    where: { accountId_productId: { accountId, productId } },
+    select: { accountId: true },
+  });
+  if (existante) return;
+
   try {
     await db.productAccess.create({
       data: { accountId, productId, status: AccessStatus.NONE, aiUsedMicroUsd: 0 },
     });
   } catch (err) {
+    // Course perdue sur un compte neuf : une autre requête a créé la ligne
+    // entre le SELECT et l'INSERT. C'est le résultat voulu, pas une erreur.
     if ((err as { code?: string } | null)?.code !== "P2002") throw err;
   }
 }
