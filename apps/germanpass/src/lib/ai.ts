@@ -89,13 +89,16 @@ async function logUsage(params: {
     .create({ data: { ...params, costUsd } })
     .catch(() => undefined);
 
-  // Régularisation de l'enveloppe Kebrane (KB-13) : la réserve prise avant
-  // l'appel reposait sur une estimation ; ici on connaît le coût réel. Même en
-  // cas d'échec de l'appel : les tokens consommés sont facturés quand même.
+  // Régularisation de l'enveloppe Kebrane (KB-13).
+  //  - Succès : on ajuste la réserve estimée au coût réel mesuré.
+  //  - Échec / sortie inexploitable : REMBOURSEMENT INTÉGRAL de la réserve
+  //    (invariant C — un membre ne perd jamais une correction qu'il n'a pas
+  //    reçue). Le coût réel des tokens éventuellement consommés reste tracé
+  //    dans ai_usage ci-dessus (NOTRE coût), mais n'est pas imputé au membre.
   await settleKebraneAi({
     userId: params.userId,
     kind: params.kind,
-    actualMicroUsd: Math.round(costUsd * 1_000_000),
+    actualMicroUsd: params.success ? Math.round(costUsd * 1_000_000) : 0,
   });
 }
 
@@ -116,6 +119,13 @@ export async function chatCompletion(params: {
   user: string;
   jsonMode?: boolean;
   temperature?: number;
+  /**
+   * Validation de la charge utile (invariant C). Appelée DANS le try, donc un
+   * rejet compte comme un échec → réserve remboursée. Permet au caller de
+   * déclarer une réponse « bien formée mais inexploitable » (mauvais schéma)
+   * sans avoir déjà été facturé.
+   */
+  validate?: (parsedJson: unknown) => void;
 }): Promise<string> {
   await checkBudget(params.userId, params.kind);
   const model = params.model ?? env.AI_MODEL_EVALUATION;
@@ -144,6 +154,17 @@ export async function chatCompletion(params: {
     usage = data.usage ?? usage;
     const content = data.choices[0]?.message.content;
     if (!content) throw new Error("Réponse IA vide");
+    // Validation AVANT de compter le succès : une réponse en JSON invalide ou de
+    // mauvais schéma est un échec (→ remboursement), pas une correction rendue.
+    if (params.jsonMode) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        throw new Error("Réponse IA en JSON invalide");
+      }
+      params.validate?.(parsed);
+    }
     await logUsage({
       userId: params.userId,
       kind: params.kind,

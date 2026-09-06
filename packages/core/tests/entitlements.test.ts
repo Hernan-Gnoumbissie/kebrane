@@ -99,6 +99,30 @@ describe("entitlements", () => {
       assert.equal(second.reason, "budget");
       assert.equal(await countEvents(account.id, "ai_budget.exhausted"), 1);
     });
+
+    test("débit ATOMIQUE : deux corrections simultanées ne consomment pas deux fois la dernière enveloppe", async () => {
+      // Invariant : quand il ne reste qu'une enveloppe, des demandes concurrentes
+      // ne doivent pas toutes passer (sinon un compte gratuit obtiendrait
+      // plusieurs corrections « offertes »). Échoue sur un check-then-write ;
+      // passe avec le débit conditionnel atomique.
+      const { account, slug } = await fixture("race");
+      const N = 5;
+      const résultats = await Promise.all(
+        Array.from({ length: N }, () =>
+          entitlements.reserveAi({
+            accountId: account.id,
+            productSlug: slug,
+            capability: CAPABILITIES.CORRECTION_WRITING,
+            estimatedMicroUsd: FREE_AI_BUDGET_MICRO_USD,
+          })
+        )
+      );
+      const acceptées = résultats.filter((r) => r.allowed).length;
+      assert.equal(acceptées, 1, `une seule demande doit passer, obtenu ${acceptées}`);
+
+      const e = await entitlements.forProduct(account.id, slug);
+      assert.equal(e.aiRemainingMicroUsd, 0, "le compteur ne dépasse jamais le budget");
+    });
   });
 
   describe("après paiement", () => {

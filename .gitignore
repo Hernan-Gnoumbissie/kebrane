@@ -21,3 +21,6 @@ out
 # junk bureautique (LibreOffice/Office)
 *.tmp
 .~lock.*
+
+# outillage local Claude Code
+.claude/

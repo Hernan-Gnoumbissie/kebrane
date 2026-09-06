@@ -159,6 +159,51 @@ export const mailTemplates = {
     ),
   }),
 
+  /** Bienvenue — accès GRATUIT PERMANENT (freemium). Aucune échéance. */
+  welcomeFree: (name: string) => ({
+    subject: "🎉 Bienvenue sur GermanPass — votre accès gratuit est ouvert !",
+    html: layout(
+      `<h2 style="margin:0 0 8px;color:#1e293b;font-size:20px">Bienvenue, ${name} !</h2>
+       <p style="color:#475569;font-size:15px;margin:0 0 20px">
+         Merci de rejoindre <strong>GermanPass</strong>. Vous pouvez déjà apprendre,
+         vous entraîner et mesurer votre niveau — <strong>gratuitement, sans limite de temps</strong>.
+       </p>
+       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:24px">
+         <strong style="color:#166534">✅ Votre accès gratuit est ouvert — aucune carte bancaire.</strong><br>
+         <span style="font-size:13px;color:#15803d">🎁 Et une correction IA vous est offerte pour découvrir le feedback.</span>
+       </div>
+       <p style="color:#374151;font-size:14px;font-weight:600;margin:0 0 12px">Ce que vous pouvez faire dès maintenant, gratuitement :</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px">
+         ${featureRow("📚", "Cours structurés A1→C2", "Chapitres par niveau et thème (grammaire, vocabulaire, Redemittel), avec exercices à valider en fin de session.")}
+         ${featureRow("🃏", "Flashcards SRS", "Répétition espacée (SM-2) : chaque révision programmée au moment optimal pour la mémoire long terme.")}
+         ${featureRow("📖", "Lesen & 🎧 Hören", "Textes et audios authentiques par niveau, correction immédiate.")}
+         ${featureRow("📝", "Examens blancs complets", "Simulez Goethe/ÖSD/telc/ECL en conditions réelles, avec rapport par compétence.")}
+         ${featureRow("📊", "Votre progression", "Scores par compétence ET par type de tâche : vous savez où vous en êtes et quoi travailler.")}
+       </table>
+       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+         <p style="margin:0;font-size:13px;color:#1e3a8a">
+           ⭐ <strong>Le Premium</strong> débloque le feedback IA détaillé sur vos écrits (Schreiben) et oraux (Sprechen), et le volume de corrections — quand vous voudrez accélérer votre préparation.
+         </p>
+       </div>
+       ${ctaButton("Commencer maintenant →", `${APP_URL}/dashboard`)}
+       <p style="font-size:13px;color:#64748b;text-align:center;margin:0">
+         Envie de feedback personnalisé ? →
+         <a href="${APP_URL}/pricing" style="color:#2563eb;font-weight:600">voir les formules</a>
+       </p>
+       <p style="margin-top:20px;color:#475569;font-size:14px">Viel Erfolg bei der Vorbereitung ! 🍀</p>`
+    ),
+  }),
+
+  /** Fin d'accès Premium → retour au gratuit (freemium). Pas de blocage. */
+  premiumEnded: (name: string) => ({
+    subject: "Votre accès Premium est terminé — vous restez sur GermanPass",
+    html: layout(
+      `<p>Bonjour ${name},</p>
+       <p>Votre accès <strong>Premium</strong> vient de se terminer. Vous <strong>gardez votre compte et toute votre progression</strong> : cours, examens blancs, Lesen, Hören et statistiques restent accessibles <strong>gratuitement, sans limite</strong>.</p>
+       <p>Seul le feedback IA détaillé sur vos productions écrites et orales est en pause. Pour le retrouver, reprenez une formule quand vous le souhaitez.</p>`
+    ),
+  }),
+
   /**
    * Email marketing J+2 : rappel des avantages concrets.
    * Envoyé si l'utilisateur n'a pas encore souscrit à une offre payante.
@@ -363,10 +408,11 @@ export const mailTemplates = {
     ),
   }),
   accessExpiringSoon: (name: string, until: Date) => ({
-    subject: "Votre accès expire bientôt",
+    subject: "Votre accès Premium se termine bientôt",
     html: layout(
       `<p>Bonjour ${name},</p>
-       <p>Votre accès expire le <strong>${until.toLocaleDateString("fr-FR")}</strong>. Pensez à le renouveler pour ne pas interrompre votre préparation.</p>`
+       <p>Votre accès <strong>Premium</strong> se termine le <strong>${until.toLocaleDateString("fr-FR")}</strong>. Renouvelez pour continuer à recevoir le feedback IA sur vos productions écrites et orales.</p>
+       <p style="font-size:13px;color:#64748b">Vos cours, examens blancs et votre progression restent accessibles gratuitement, sans limite.</p>`
     ),
   }),
   accessExpired: (name: string) => ({

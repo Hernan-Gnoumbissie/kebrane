@@ -78,7 +78,12 @@ export async function sendExpiringReminders(now: Date = new Date()): Promise<num
   return sent;
 }
 
-/** Job cron : expire les comptes dont accessUntil est dépassé. Retourne le nb expiré. */
+/**
+ * Job cron : les comptes dont l'accès PREMIUM est échu retombent au palier
+ * GRATUIT (freemium), au lieu d'être bloqués. Ils gardent compte, progression et
+ * surfaces gratuites ; seul le feedback IA détaillé cesse. Retourne le nombre de
+ * comptes rétrogradés.
+ */
 export async function expireOverdueAccounts(now: Date = new Date()): Promise<number> {
   const overdue = await db.user.findMany({
     where: { status: "ACTIVE", role: "STUDENT", accessUntil: { lt: now } },
@@ -86,26 +91,28 @@ export async function expireOverdueAccounts(now: Date = new Date()): Promise<num
   });
   if (overdue.length === 0) return 0;
 
-  // Mise à jour en une seule requête (bien plus performant que N updates séquentiels).
+  // Retour au gratuit : on reste ACTIVE, on retire l'échéance (accessUntil null
+  // = socle gratuit permanent). Une seule requête.
   await db.user.updateMany({
     where: { id: { in: overdue.map((u) => u.id) } },
-    data: { status: "EXPIRED" },
+    data: { status: "ACTIVE", accessUntil: null },
   });
 
-  // Miroir dans Core : le hub Kebrane repasse GermanPass à « à souscrire » (KB-08).
+  // Miroir Core : sans échéance future, toKebraneAccessStatus → NONE, donc Core
+  // retombe sur le palier gratuit (l'enveloppe premium n'est plus due).
   for (const u of overdue) {
-    syncKebraneAccessInBackground({ ...u, status: "EXPIRED", accessUntil: null });
+    syncKebraneAccessInBackground({ ...u, status: "ACTIVE", accessUntil: null });
   }
 
-  // Audit + emails en parallèle (fire-and-forget pour les emails).
+  // Audit + emails (fire-and-forget pour les emails).
   await Promise.all(
     overdue.map((u) =>
-      audit({ actorId: null, action: "user.expire", targetType: "User", targetId: u.id, metadata: { by: "cron" } })
+      audit({ actorId: null, action: "user.premium_ended", targetType: "User", targetId: u.id, metadata: { by: "cron", downgradedToFree: true } })
     )
   );
   void Promise.allSettled(
     overdue.map((u) => {
-      const tpl = mailTemplates.accessExpired(u.name);
+      const tpl = mailTemplates.premiumEnded(u.name);
       return sendMail(u.email, tpl.subject, tpl.html);
     })
   );

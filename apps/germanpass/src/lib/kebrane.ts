@@ -75,9 +75,12 @@ export function toKebraneAccessStatus(
 ): AccessStatus {
   switch (user.status) {
     case "ACTIVE":
-      return user.accessUntil && user.accessUntil.getTime() <= now.getTime()
-        ? AccessStatus.NONE
-        : AccessStatus.ACTIVE;
+      // Freemium : « ACTIVE » côté produit ne vaut « payant » côté Core que s'il
+      // reste une échéance FUTURE. accessUntil null = socle gratuit permanent
+      // → NONE (Core retombe alors sur le palier gratuit).
+      return user.accessUntil && user.accessUntil.getTime() > now.getTime()
+        ? AccessStatus.ACTIVE
+        : AccessStatus.NONE;
     case "PENDING":
       return AccessStatus.PENDING;
     case "SUSPENDED":

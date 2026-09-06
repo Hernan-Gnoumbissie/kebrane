@@ -40,6 +40,25 @@ function isPaidNow(
   return !expiresAt || expiresAt.getTime() > now.getTime();
 }
 
+/**
+ * Garantit l'existence de la ligne d'accès — un compte gratuit n'en a pas.
+ *
+ * On INSÈRE, sans passer par `upsert` : avec un `update` vide, Prisma retombe
+ * sur un « lis puis insère » non atomique, et deux requêtes concurrentes sur un
+ * compte neuf se heurtent sur la contrainte d'unicité. Ici, le doublon dit
+ * seulement qu'une autre requête a créé la ligne la première : c'est le résultat
+ * voulu, pas une erreur.
+ */
+async function ensureAccessRow(accountId: string, productId: string): Promise<void> {
+  try {
+    await db.productAccess.create({
+      data: { accountId, productId, status: AccessStatus.NONE, aiUsedMicroUsd: 0 },
+    });
+  } catch (err) {
+    if ((err as { code?: string } | null)?.code !== "P2002") throw err;
+  }
+}
+
 export const entitlements = {
   /**
    * Droits effectifs d'un compte sur un produit.
@@ -112,16 +131,23 @@ export const entitlements = {
   }): Promise<{ allowed: boolean; reason?: "capability" | "budget"; remainingMicroUsd: number }> {
     const e = await entitlements.forProduct(input.accountId, input.productSlug);
 
+    // La capacité ne change pas au cours d'une requête : un contrôle simple suffit.
     if (!e.capabilities.includes(input.capability)) {
       return { allowed: false, reason: "capability", remainingMicroUsd: e.aiRemainingMicroUsd };
     }
+
+    const product = await products.bySlug(input.productSlug);
+    if (!product) {
+      return { allowed: false, reason: "capability", remainingMicroUsd: e.aiRemainingMicroUsd };
+    }
+
+    // Pré-contrôle INFORMATIF (pour le message et l'évènement), avant le débit.
     if (input.estimatedMicroUsd > e.aiRemainingMicroUsd) {
-      const product = await products.bySlug(input.productSlug);
       await events.log({
         type: "ai_budget.exhausted",
         severity: "ACTION_REQUIRED", // le membre doit agir : renouveler
         accountId: input.accountId,
-        productId: product?.id,
+        productId: product.id,
         data: {
           capability: input.capability,
           remaining: e.aiRemainingMicroUsd,
@@ -132,8 +158,44 @@ export const entitlements = {
       return { allowed: false, reason: "budget", remainingMicroUsd: e.aiRemainingMicroUsd };
     }
 
-    await entitlements.settleAi(input.accountId, input.productSlug, input.estimatedMicroUsd);
-    return { allowed: true, remainingMicroUsd: e.aiRemainingMicroUsd - input.estimatedMicroUsd };
+    // INVARIANT : le débit doit être ATOMIQUE. Deux corrections simultanées ne
+    // peuvent pas consommer deux fois la dernière enveloppe. On garantit d'abord
+    // l'existence de la ligne (un compte gratuit n'en a pas), puis on incrémente
+    // par un UPDATE CONDITIONNEL : il n'a lieu que si le budget reste tenu
+    // (`aiUsedMicroUsd <= budget - estimé`). Postgres sérialise cet UPDATE sur la
+    // ligne ; `count === 0` signale qu'une requête concurrente a pris la place.
+    const budget = e.aiBudgetMicroUsd; // payant → enveloppe du pass ; gratuit → forfait offert
+    await ensureAccessRow(input.accountId, product.id);
+    const debit = await db.productAccess.updateMany({
+      where: {
+        accountId: input.accountId,
+        productId: product.id,
+        aiUsedMicroUsd: { lte: budget - input.estimatedMicroUsd },
+      },
+      data: { aiUsedMicroUsd: { increment: input.estimatedMicroUsd } },
+    });
+    if (debit.count === 0) {
+      // Course perdue : l'enveloppe a été consommée entre la lecture et le débit.
+      const fresh = await entitlements.forProduct(input.accountId, input.productSlug);
+      await events.log({
+        type: "ai_budget.exhausted",
+        severity: "ACTION_REQUIRED",
+        accountId: input.accountId,
+        productId: product.id,
+        data: {
+          capability: input.capability,
+          remaining: fresh.aiRemainingMicroUsd,
+          requested: input.estimatedMicroUsd,
+          paid: fresh.paid,
+          race: true,
+        },
+      });
+      return { allowed: false, reason: "budget", remainingMicroUsd: fresh.aiRemainingMicroUsd };
+    }
+    return {
+      allowed: true,
+      remainingMicroUsd: Math.max(0, budget - (e.aiUsedMicroUsd + input.estimatedMicroUsd)),
+    };
   },
 
   /**
