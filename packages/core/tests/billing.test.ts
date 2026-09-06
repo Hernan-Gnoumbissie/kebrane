@@ -103,8 +103,15 @@ describe("billing", () => {
     const second = await billing.confirm(payment.provider, payment.providerRef);
     const third = await billing.confirm(payment.provider, payment.providerRef);
 
-    assert.deepEqual(second?.confirmedAt, first?.confirmedAt, "aucune réécriture");
-    assert.deepEqual(third?.confirmedAt, first?.confirmedAt);
+    // Le rejeu renvoie `null` : c'est précisément ce qui permet à l'appelant
+    // (la route webhook) de n'exécuter ses propres effets de bord qu'à la
+    // confirmation réelle. Seule la première renvoie le paiement.
+    assert.ok(first?.confirmedAt, "la première confirmation encaisse");
+    assert.equal(second, null, "un rejeu n'encaisse pas");
+    assert.equal(third, null);
+
+    const row = await db.payment.findUnique({ where: { id: payment.id } });
+    assert.deepEqual(row?.confirmedAt, first?.confirmedAt, "aucune réécriture");
     assert.equal(
       await countEvents(account.id, "payment.confirmed"),
       1,
