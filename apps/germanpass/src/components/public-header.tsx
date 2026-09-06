@@ -22,12 +22,12 @@ export function PublicHeader() {
           <Link href="/pricing" className={buttonVariants({ variant: "ghost", size: "sm" })}>
             Tarifs
           </Link>
-          <a
+          <Link
             href="/#contact"
             className={buttonVariants({ variant: "ghost", size: "sm" }) + " hidden sm:inline-flex"}
           >
             Contact
-          </a>
+          </Link>
           <Link href="/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>
             Connexion
           </Link>
