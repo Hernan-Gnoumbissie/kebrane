@@ -144,8 +144,10 @@ export default async function GermanPassPage() {
         </h2>
         {/* Ce paragraphe décrit le palier gratuit tel que le CODE le définit :
             `FREE_CAPABILITIES` (cours, examens blancs, progression) et
-            `FREE_AI_BUDGET_MICRO_USD`, dimensionnée pour une correction écrite
-            complète. Si l'un des deux change, ce texte doit changer avec. */}
+            `FREE_AI_CORRECTIONS`, un nombre de corrections offertes — et non une
+            enveloppe en argent, pour que la promesse ne bouge pas quand les
+            estimations de coût bougent. Si l'un des deux change, ce texte doit
+            changer avec. */}
         <p className="leading-relaxed text-muted-foreground">
           Les cours, les examens blancs et le suivi de progression sont en accès libre, sans
           paiement. Une <strong className="font-medium text-foreground">correction écrite</strong>{" "}

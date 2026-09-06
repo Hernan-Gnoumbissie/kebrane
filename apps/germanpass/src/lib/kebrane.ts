@@ -352,12 +352,19 @@ export async function settleKebraneAi(input: {
   userId: string | null;
   kind: string;
   actualMicroUsd: number;
+  /**
+   * `false` = l'appel n'a rien rendu d'exploitable. La réservation est ANNULÉE
+   * (invariant C), et non régularisée : sur le palier gratuit, ce qui a été
+   * débité est une correction, qu'un delta en micro-dollars ne saurait rendre.
+   */
+  success: boolean;
 }): Promise<void> {
   if (!CORE_ENABLED || !input.userId) return;
   if (!CAPABILITY_BY_KIND[input.kind]) return;
 
-  const delta = input.actualMicroUsd - estimatedMicroUsd(input.kind);
-  if (delta === 0) return;
+  const estime = estimatedMicroUsd(input.kind);
+  const delta = input.actualMicroUsd - estime;
+  if (input.success && delta === 0) return;
 
   try {
     const user = await db.user.findUnique({
@@ -367,7 +374,11 @@ export async function settleKebraneAi(input: {
     if (!user?.clerkUserId) return;
     const account = await accounts.findByClerkUserId(user.clerkUserId);
     if (!account) return;
-    await entitlements.settleAi(account.id, GERMANPASS_SLUG, delta);
+    if (input.success) {
+      await entitlements.settleAi(account.id, GERMANPASS_SLUG, delta);
+    } else {
+      await entitlements.refundAi(account.id, GERMANPASS_SLUG, estime);
+    }
   } catch (e) {
     warn("settleKebraneAi", e);
   }

@@ -98,7 +98,8 @@ async function logUsage(params: {
   await settleKebraneAi({
     userId: params.userId,
     kind: params.kind,
-    actualMicroUsd: params.success ? Math.round(costUsd * 1_000_000) : 0,
+    actualMicroUsd: Math.round(costUsd * 1_000_000),
+    success: params.success,
   });
 }
 

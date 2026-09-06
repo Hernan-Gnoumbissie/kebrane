@@ -13,6 +13,7 @@ import { db } from "@kebrane/db";
 import type { Payment } from "@kebrane/db";
 import { AccessStatus, PaymentChannel, PaymentStatus } from "@kebrane/db";
 import { access, events, products } from "./index";
+import { FREE_AI_CORRECTIONS } from "./capabilities";
 import { plans } from "./plans";
 
 export type { Payment } from "@kebrane/db";
@@ -259,6 +260,11 @@ export const billing = {
           // Le compteur repart à zéro : l'enveloppe est celle de la période
           // achetée, pas un cumul depuis la création du compte.
           aiUsedMicroUsd: 0,
+          // L'offerte est CONSOMMÉE par l'achat, pas seulement par son usage :
+          // elle sert à découvrir ce qu'on achète, et qui achète a découvert.
+          // Marquée ici, elle ne peut plus reparaître à l'expiration du pass —
+          // sans quoi chaque abonnement échu rendrait une correction gratuite.
+          freeAiCorrectionsUsed: FREE_AI_CORRECTIONS,
         },
       });
     }

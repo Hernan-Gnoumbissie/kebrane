@@ -8,8 +8,11 @@
 
 `packages/core/src/entitlements.ts` (`forProduct`) implémente déjà le modèle :
 - compte sans accès payant → **tier gratuit** : `FREE_CAPABILITIES` +
-  `FREE_AI_BUDGET_MICRO_USD = 30 000 µ$` (≈ 1 correction, `ESTIMATED_WRITING_CORRECTION_MICRO_USD = 20 000`) ;
-- correction offerte **à vie** : `aiUsedMicroUsd` cumulatif ;
+  `FREE_AI_CORRECTIONS = 1` — un COMPTE de corrections, pas une enveloppe en
+  argent (voir §5) ; `FREE_AI_BUDGET_MICRO_USD` n'en est que la traduction pour
+  l'affichage ;
+- correction offerte **à vie** : compteur `freeAiCorrectionsUsed`, que ni une
+  expiration ni un achat ne réarment ;
 - premium expiré → **retour automatique au gratuit** (`isPaidNow` → false), jamais bloqué ;
 - à l'achat, `billing.ts` remet `aiUsedMicroUsd: 0` → l'enveloppe premium est
   **pleine et propre** (la correction offerte « disparaît », pas de 1+32=33).
@@ -23,8 +26,9 @@ avant d'activer l'enforcement.
 | Décision | Choix | État dans le code |
 |---|---|---|
 | Gratuit | ♾️ Permanent | Core OK ; gate local GermanPass à recâbler |
-| Correction IA gratuite | **1 à vie** | ✅ déjà (30 000 µ$, cumulatif) |
-| Correction gratuite récurrente | ❌ Non | ✅ déjà (reset uniquement à l'achat) |
+| Correction IA gratuite | **1 à vie** | ✅ `freeAiCorrectionsUsed` (compteur, pas une somme) |
+| Sur quoi porte l'offerte | **Écrit uniquement** | ✅ `FREE_AI_CORRECTION_CAPABILITY` |
+| Correction gratuite récurrente | ❌ Non | ✅ consommée par l'usage OU par l'achat |
 | Libellé UI | « 🎁 1 correction IA offerte » (pas « quota gratuit ») | à ajuster (`AiQuota`) |
 | Premium | Corrections IA selon budget | ✅ |
 | Budget premium | Lié au pass (7/30/90/365 = durée + volume) | ✅ |
@@ -99,6 +103,50 @@ avant d'activer l'enforcement.
 - Migration : un ancien compte expiré retrouve l'accès gratuit.
 - Libellés : plus aucun « ton essai expire » ni « renouvellement ».
 
+## 5. L'offerte est un COMPTE, pas une enveloppe (2026-09-07)
+
+Le gratuit était exprimé dans la même unité que le premium — des micro-dollars —
+alors que les deux promesses n'ont pas la même nature. Deux défauts en
+découlaient, tous deux invisibles tant qu'on ne touchait pas aux estimations.
+
+**a. « Une correction » dépendait d'une division.** Le droit se décidait en
+comparant le coût *estimé* d'un appel (`writing_eval` : 25 000 µ$ côté
+GermanPass) à l'enveloppe offerte (30 000 µ$). Le rapport donnait « une »
+correction par accident. Réviser l'estimation à la hausse — ce que
+`ai:cost` finira par imposer — l'aurait fait tomber à **zéro** ; à la baisse,
+elle en aurait offert **deux**. La promesse publique, elle, dit « une ».
+
+**b. L'offerte revenait après un abonnement.** `billing.confirm` remet
+`aiUsedMicroUsd` à zéro pour donner une enveloppe premium propre. À l'expiration,
+le palier gratuit relisait ce même compteur, le trouvait vierge, et rendait une
+correction « offerte » — une de plus à chaque abonnement échu.
+
+**Correction.** Deux compteurs pour deux promesses :
+
+| | Premium | Gratuit |
+|---|---|---|
+| Unité | enveloppe `aiUsedMicroUsd` (µ$) | compteur `freeAiCorrectionsUsed` |
+| Réarmé par | chaque achat | **rien** |
+| Décidé par | le coût estimé | `FREE_AI_CORRECTIONS` |
+
+L'offerte est consommée par son usage **ou par un achat** (qui achète a
+découvert), et elle porte sur l'**écrit** seul — `FREE_AI_CORRECTION_CAPABILITY`.
+Cette dernière règle existait déjà, mais par accident : 60 000 µ$ d'appel oral ne
+tenaient pas dans 30 000 µ$ d'enveloppe. Une enveloppe mieux dotée l'aurait
+silencieusement renversée ; elle est désormais écrite.
+
+Conséquence sur l'invariant C : annuler une réservation n'est plus un delta
+négatif mais `entitlements.refundAi()`. `settleAi()` ne sait pas distinguer
+« rien rendu » de « moins cher que prévu » — les deux produisent le même delta —
+et rendrait donc des corrections déjà servies.
+
+Migration : `20260906230320_kb13b_corrections_offertes_compteur` — une colonne
+ajoutée avec valeur par défaut, sans réécriture de données. Les comptes
+existants démarrent à `freeAiCorrectionsUsed = 0` ; ceux qui avaient déjà
+consommé leur offerte en micro-dollars la retrouvent **une fois**. Volume connu
+et sans risque : le drapeau n'ayant jamais été actif en production, aucun refus
+n'a encore été prononcé sur cette base.
+
 ## Sources (code audité)
 `packages/core/src/entitlements.ts` · `packages/core/src/billing.ts` ·
 `packages/core/src/capabilities.ts` · `apps/germanpass/src/lib/ai.ts` ·
@@ -157,4 +205,5 @@ dans `ai_usage`. Garde `JSON.parse` + hook `validate` en `jsonMode`.
 ### Reste ouvert (hors recâblage)
 - Sprechen : adopter `validate` si son évaluation passe par `chatCompletion` + schéma.
 - Top-up de corrections : parqué (analyse des coûts d'abord).
-- `correction offerte` : 1 à vie (déjà le comportement) — RAS.
+- `correction offerte` : 1 à vie — **fait** par compteur dédié (§5), et non plus
+  par le rapport entre une enveloppe et une estimation de coût.
