@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { scheduleMarketingSequence } from "@/lib/marketing";
 import { syncKebraneAccessInBackground } from "@/lib/kebrane";
+import { sendMail, mailTemplates } from "@/lib/mail";
 
 /**
  * Webhook Clerk — synchronise les événements Clerk vers la base métier.
@@ -11,7 +12,8 @@ import { syncKebraneAccessInBackground } from "@/lib/kebrane";
  *  - user.created   : upsert de l'utilisateur métier. Si un compte existe déjà
  *                     pour cet email (migration / liaison Google), on le relie
  *                     (clerkUserId). Sinon on crée un compte au statut PENDING
- *                     (validation admin conservée) et on planifie le marketing.
+ *                     (validation admin conservée), on envoie la bienvenue
+ *                     freemium et on planifie le marketing.
  *  - session.created: pose `activeSessionId` = dernière session Clerk
  *                     (session unique anti-partage ; les guards invalident le reste).
  *  - user.deleted   : délie le compte (clerkUserId = null).
@@ -91,6 +93,14 @@ export async function POST(req: NextRequest): Promise<Response> {
               emailVerifiedAt: new Date(),
             },
           });
+          // Bienvenue freemium : c'est ICI que passe une inscription réelle
+          // (la page /register monte <SignUp> de Clerk), pas par
+          // /api/auth/register. Sans cet envoi, personne ne reçoit l'e-mail qui
+          // annonce l'accès gratuit permanent et la correction offerte.
+          const bienvenue = mailTemplates.welcomeFree(created.name);
+          void sendMail(created.email, bienvenue.subject, bienvenue.html).catch((e) =>
+            console.error("[clerk-webhook] e-mail de bienvenue non envoyé :", e)
+          );
           void scheduleMarketingSequence(created.id).catch((e) =>
             console.error("[clerk-webhook] planification marketing échouée :", e)
           );
