@@ -52,8 +52,8 @@ const FAQ = [
     a: "Oui. Votre objectif d'examen et de niveau oriente les exercices, les examens blancs et les recommandations.",
   },
   {
-    q: "Pourquoi mon accès n'est-il pas immédiat après l'inscription ?",
-    a: "Le compte est débloqué après vérification du paiement. Avant validation, vous voyez les tarifs et pouvez envoyer votre preuve.",
+    q: "C'est vraiment gratuit ?",
+    a: "Oui. Cours, entraînements et examens blancs, sans limite de temps ni carte bancaire. Le Premium ne débloque que le feedback IA détaillé sur vos écrits et oraux.",
   },
 ] as const;
 
@@ -115,7 +115,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              Pensé pour les candidats francophones et anglophones · essai gratuit sans carte bancaire.
+              Pensé pour les candidats francophones et anglophones · cours, entraînements et examens blancs gratuits, sans carte bancaire.
             </p>
           </div>
 
