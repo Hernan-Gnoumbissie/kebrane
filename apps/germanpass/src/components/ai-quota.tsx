@@ -32,13 +32,13 @@ export function AiQuota({ entitlement }: { entitlement: Entitlement | null }) {
           <CardTitle className="text-lg">Corrections épuisées</CardTitle>
           <CardDescription>
             {entitlement.paid
-              ? "Vous avez utilisé toutes les corrections de votre formule. Elles seront rechargées à votre prochain renouvellement."
-              : "Vous avez utilisé votre correction offerte. Les cours et les examens blancs restent accessibles sans limite."}
+              ? "Vous avez utilisé toutes les corrections de votre formule. Prenez une nouvelle formule pour continuer — vos cours, examens et progression restent gratuits."
+              : "Vous avez utilisé votre correction offerte. Les cours, les examens blancs et votre progression restent accessibles gratuitement, sans limite."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <Link href="/pricing" className={buttonVariants({ size: "sm" })}>
-            {entitlement.paid ? "Renouveler" : "Voir les formules"}
+            {entitlement.paid ? "Prendre une formule" : "Voir les formules"}
           </Link>
           <span className="text-sm text-muted-foreground">
             Vous pouvez continuer à vous entraîner : seule la correction automatique est
@@ -64,7 +64,7 @@ export function AiQuota({ entitlement }: { entitlement: Entitlement | null }) {
         <p className="text-sm text-muted-foreground">
           {entitlement.paid
             ? "Incluses dans votre formule en cours."
-            : "Correction offerte — les cours et examens blancs restent illimités."}
+            : "🎁 Correction offerte — cours, examens et progression restent gratuits."}
         </p>
         {entitlement.expiresAt ? (
           <p className="text-xs text-muted-foreground">

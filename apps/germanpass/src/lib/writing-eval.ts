@@ -138,6 +138,11 @@ ${params.text}`;
     user,
     jsonMode: true,
     temperature: 0.2,
+    // Schéma vérifié DANS l'appel : un JSON de mauvaise forme est un échec
+    // (réserve remboursée), pas une correction facturée (invariant C).
+    validate: (raw) => {
+      writingFeedbackSchema.parse(raw);
+    },
   });
 
   return { ...normalizeFeedback(JSON.parse(raw), criteria), lang: params.nativeLang };

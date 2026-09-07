@@ -39,6 +39,30 @@ export const CAPABILITIES = {
 
 export type Capability = (typeof CAPABILITIES)[keyof typeof CAPABILITIES];
 
+/**
+ * Libellés lisibles des capacités.
+ *
+ * Ils vivent ici, à côté des clés, pour la même raison que `EVENT_CATALOG`
+ * porte ses libellés : la page `/tarifs` et l'écran d'administration des offres
+ * doivent nommer une capacité de la même façon. Deux tables de traduction, et
+ * un membre lit sur la grille tarifaire autre chose que ce que l'administrateur
+ * a coché.
+ */
+export const CAPABILITY_LABELS: Record<Capability, string> = {
+  [CAPABILITIES.LESSON_READ]: "Cours et leçons",
+  [CAPABILITIES.EXAM_RUN]: "Examens blancs",
+  [CAPABILITIES.PROGRESS_VIEW]: "Suivi de progression",
+  [CAPABILITIES.CORRECTION_WRITING]: "Correction de l'expression écrite",
+  [CAPABILITIES.CORRECTION_SPEAKING]: "Correction de l'expression orale",
+  [CAPABILITIES.TUTOR_CHAT]: "Tuteur conversationnel",
+  [CAPABILITIES.LIBRARY_DICTIONARY]: "Bibliothèque et dictionnaire",
+};
+
+/** Libellé d'une capacité, ou la clé brute si elle n'est pas connue. */
+export function capabilityLabel(key: string): string {
+  return isKnownCapability(key) ? CAPABILITY_LABELS[key] : key;
+}
+
 /** Toutes les clés connues — sert à rejeter une offre mal composée. */
 export const ALL_CAPABILITIES: readonly Capability[] = Object.values(CAPABILITIES);
 
@@ -62,22 +86,68 @@ export const FREE_CAPABILITIES: readonly Capability[] = [
 ];
 
 /**
- * Enveloppe IA offerte, en micro-dollars (1 000 000 = 1 $).
+ * Corrections IA OFFERTES, à vie, sur le palier gratuit.
  *
- * Dimensionnée pour **une correction écrite complète** — feedback IA compris.
- * L'essai doit montrer exactement ce qu'on achète : un examen sans correction
- * ne démontrerait rien, et reviendrait à demander au prospect d'acheter à
- * l'aveugle.
+ * Un COMPTE, délibérément — pas une enveloppe en micro-dollars. L'essai doit
+ * montrer exactement ce qu'on achète : un examen sans correction ne démontrerait
+ * rien, et reviendrait à demander au prospect d'acheter à l'aveugle.
  *
- * ⚠ Une correction ORALE coûte 2 à 3 fois plus (transcription + évaluation) :
- * elle ne tient donc pas dans cette enveloppe et sera refusée. C'est assumé —
- * la promesse est « une correction écrite offerte ». Relever ce nombre suffit
- * à l'étendre à l'oral.
+ * Pourquoi pas de l'argent : une enveloppe ne tient sa promesse que tant que
+ * l'estimation du coût d'une correction ne bouge pas. Qu'elle soit révisée à la
+ * hausse et le gratuit tombe à ZÉRO correction ; à la baisse, il en offre deux.
+ * La promesse publique, elle, dit « une ». Un compteur la rend vraie quelles que
+ * soient les mesures de coût à venir.
  *
- * Estimation, non mesurée : ~0,02 $ la correction écrite (voir
- * `pnpm --filter @kebrane/germanpass ai:cost`). À réviser sur données réelles.
+ * Sur quoi elle porte : voir `FREE_AI_CORRECTION_CAPABILITY`.
  */
-export const FREE_AI_BUDGET_MICRO_USD = 30_000;
+export const FREE_AI_CORRECTIONS = 1;
+
+/**
+ * La correction offerte porte sur l'ÉCRIT, et sur lui seul.
+ *
+ * Une correction orale coûte 2 à 3 fois plus (transcription + évaluation) :
+ * l'offrir consommerait la même unité pour un coût bien supérieur. C'était déjà
+ * la règle — mais elle tenait à un accident d'arithmétique, l'enveloppe offerte
+ * étant trop petite pour un appel oral. Une enveloppe mieux dotée l'aurait
+ * silencieusement renversée. Elle est donc écrite ici, où on peut la lire et la
+ * discuter.
+ *
+ * L'oral reste dans `FREE_CAPABILITIES` : le compte gratuit y a DROIT, il n'a
+ * simplement rien pour le payer. D'où un refus pour cause d'enveloppe, et non de
+ * capacité — c'est la différence entre « prenez une formule » et « cela n'existe
+ * pas pour vous ».
+ */
+export const FREE_AI_CORRECTION_CAPABILITY: Capability = CAPABILITIES.CORRECTION_WRITING;
 
 /** Confort de lecture : 1 $ = 1 000 000 micro-dollars. */
 export const MICRO_USD_PER_USD = 1_000_000;
+
+/**
+ * Coût estimé d'une correction écrite, en micro-dollars (~0,02 $).
+ *
+ * Sert à TRADUIRE une enveloppe en quelque chose qu'un membre comprend : une
+ * offre « 800 000 micro-dollars » ne veut rien dire, « environ 40 corrections
+ * écrites » si. La grille tarifaire et l'écran d'administration s'en servent
+ * tous les deux — d'où sa place ici plutôt que dans une page.
+ *
+ * ⚠ ESTIMATION, non mesurée (voir `pnpm --filter @kebrane/germanpass ai:cost`).
+ * C'est pourquoi le nombre affiché doit rester approximatif : les enveloppes
+ * sont dimensionnées avec de la marge (voir `PLAN_REGISTRY`), mais promettre un
+ * compte exact reviendrait à s'engager sur le tarif d'un fournisseur tiers.
+ */
+export const ESTIMATED_WRITING_CORRECTION_MICRO_USD = 20_000;
+
+/** Ordre de grandeur de corrections écrites que couvre une enveloppe. */
+export function estimatedWritingCorrections(aiBudgetMicroUsd: number): number {
+  return Math.floor(aiBudgetMicroUsd / ESTIMATED_WRITING_CORRECTION_MICRO_USD);
+}
+
+/**
+ * Traduction en micro-dollars des corrections offertes.
+ *
+ * Sert UNIQUEMENT à l'affichage — jauge d'`AiQuota`, écrans d'administration —
+ * pour que le gratuit se lise dans la même unité que le premium. Le droit, lui,
+ * est décidé par `FREE_AI_CORRECTIONS` : rien ici ne gouverne un refus.
+ */
+export const FREE_AI_BUDGET_MICRO_USD =
+  FREE_AI_CORRECTIONS * ESTIMATED_WRITING_CORRECTION_MICRO_USD;

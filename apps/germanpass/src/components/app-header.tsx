@@ -2,22 +2,11 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
-import { LogoutButton } from "@/components/logout-button";
 import { MobileNav } from "@/components/mobile-nav";
-import { NavLinks } from "@/components/nav-links";
 import { MobileBackButton } from "@/components/mobile-back-button";
 import { Logo } from "@/components/logo";
 import { ByKebrane } from "@kebrane/ui";
 import { KEBRANE_HUB_URL } from "@/lib/platform";
-
-const NAV_ITEMS = [
-  { href: "/dashboard",          label: "Tableau de bord"  },
-  { href: "/practice",           label: "Lesen/Hören"      },
-  { href: "/practice/schreiben", label: "Schreiben"        },
-  { href: "/practice/sprechen",  label: "Sprechen"         },
-  { href: "/exams",              label: "Examens blancs"   },
-  { href: "/learn",              label: "Apprentissage"    },
-] as const;
 
 /** Header de navigation partagé par toutes les pages connectées.
  *  Server component : récupère session + rôle en BDD.
@@ -38,13 +27,6 @@ export async function AppHeader() {
     isAdmin      = user?.role === "ADMIN";
     examPrepOnly = !isAdmin && user?.plan === "EXAM_PREP";
   }
-
-  const nav = NAV_ITEMS.filter((item) => {
-    if (item.href === "/learn" && examPrepOnly) return false;
-    // L'admin a son propre espace « Administration » ; pas de tableau de bord étudiant.
-    if (item.href === "/dashboard" && isAdmin) return false;
-    return true;
-  }) as { href: string; label: string }[];
 
   return (
     <>
@@ -67,14 +49,17 @@ export async function AppHeader() {
         </Link>
 
         {/* ── Navigation desktop ── */}
-        <nav className="hidden md:flex items-center gap-0.5 flex-wrap flex-1">
-          <NavLinks nav={nav} />
-        </nav>
-
-        <span className="flex-1 md:hidden" />
+        {/* Plus de navigation horizontale. Il y avait TROIS navigations selon
+            la largeur — burger, liens horizontaux, barre latérale — donc trois
+            apparences pour une même application. Il n'en reste deux : la barre
+            latérale à partir de `lg`, le menu burger en dessous, et le burger
+            reprend exactement les mêmes sections. */}
+        <span className="flex-1" />
 
         {/* ── Bonjour [Prénom] + actions desktop ── */}
-        <div className="hidden md:flex items-center gap-2">
+        {/* Actions de compte reservees au grand ecran : sous `lg`, tout passe
+            par le menu burger, qui les contient deja. */}
+        <div className="hidden lg:flex items-center gap-2">
           {/* Retour au hub Kebrane — la session Clerk est partagée (KB-10),
               donc aucun re-login. Lien natif : origine différente de l'app. */}
           <a
@@ -94,11 +79,10 @@ export async function AppHeader() {
               Administration
             </Link>
           ) : null}
-          <LogoutButton />
         </div>
 
         {/* ── Menu burger mobile ── */}
-        <MobileNav nav={nav} isAdmin={isAdmin} firstName={firstName} />
+        <MobileNav droits={{ examPrepOnly }} isAdmin={isAdmin} firstName={firstName} />
       </div>
     </header>
 

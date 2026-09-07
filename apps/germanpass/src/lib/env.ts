@@ -15,6 +15,11 @@ const envSchema = z.object({
   AI_EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
   AI_MONTHLY_BUDGET_USER_USD: z.coerce.number().positive().default(5),
   TTS_MODEL: z.string().default("tts-1"),
+  // Modèle des dialogues Hören. Distinct de TTS_MODEL parce que seuls les
+  // modèles récents acceptent `instructions` — c'est ce paramètre qui permet
+  // de diriger l'intonation personnage par personnage. Les flashcards et les
+  // leçons restent sur TTS_MODEL, moins cher et suffisant pour une voix seule.
+  TTS_DIALOGUE_MODEL: z.string().default("gpt-4o-mini-tts"),
   STT_MODEL: z.string().default("whisper-1"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().default(587),

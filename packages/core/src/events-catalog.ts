@@ -55,6 +55,21 @@ export const EVENT_CATALOG = {
     label: "Identité de connexion détachée du compte",
     notify: [],
   },
+  "account.data_exported": {
+    severity: "IMPORTANT",
+    label: "Données du compte exportées",
+    // Journal seulement : c'est le membre lui-même qui déclenche l'export
+    // depuis son espace, il n'a pas à recevoir un e-mail le lui annonçant.
+    notify: [],
+  },
+  "account.erased": {
+    severity: "IMPORTANT",
+    label: "Compte effacé à la demande du membre (RGPD)",
+    // Ni le membre — son adresse vient d'être effacée, il n'y a plus où
+    // écrire — ni le personnel : un départ n'est pas un incident. La console
+    // d'administration compte les événements, c'est le bon endroit.
+    notify: [],
+  },
   "account.role_changed": {
     severity: "IMPORTANT",
     label: "Rôle modifié",

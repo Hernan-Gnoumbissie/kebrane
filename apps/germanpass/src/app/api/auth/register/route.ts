@@ -7,8 +7,9 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sendMail, mailTemplates } from "@/lib/mail";
 import { scheduleMarketingSequence } from "@/lib/marketing";
 
-/** Durée du trial offert à l'inscription (24 heures en ms). */
-const TRIAL_DURATION_MS = 24 * 60 * 60 * 1000;
+// Freemium : plus d'essai limité dans le temps. L'inscription ouvre un accès
+// GRATUIT PERMANENT (accessUntil = null). Le premium (feedback IA) est gouverné
+// par l'enveloppe Core, jamais par une expiration de compte.
 
 /**
  * Message de confirmation renvoyé À L'IDENTIQUE que le compte vienne d'être
@@ -70,7 +71,6 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
-  const trialUntil = new Date(Date.now() + TRIAL_DURATION_MS);
 
   const user = await db.user.create({
     data: {
@@ -78,9 +78,9 @@ export async function POST(req: Request): Promise<Response> {
       email,
       passwordHash,
       localePref: locale,
-      // Trial 24 h offert immédiatement : accès actif dès l'inscription.
+      // Accès gratuit PERMANENT dès l'inscription : actif, sans échéance.
       status: "ACTIVE",
-      accessUntil: trialUntil,
+      accessUntil: null,
       targetProvider: targetProvider ?? null,
       currentLevel: currentLevel,
       targetLevel: targetLevel ?? null,
@@ -93,11 +93,11 @@ export async function POST(req: Request): Promise<Response> {
     targetType: "User",
     targetId: user.id,
     ipAddress: ip,
-    metadata: { trial: true, trialUntil: trialUntil.toISOString() },
+    metadata: { plan: "free" },
   });
 
-  // E-mail de bienvenue avec le trial (en arrière-plan, non bloquant)
-  const tpl = mailTemplates.welcomeWithTrial(user.name, trialUntil);
+  // E-mail de bienvenue (accès gratuit permanent), en arrière-plan.
+  const tpl = mailTemplates.welcomeFree(user.name);
   void sendMail(user.email, tpl.subject, tpl.html).catch((err) =>
     console.error("[register] email de bienvenue non envoyé :", err)
   );
@@ -109,7 +109,7 @@ export async function POST(req: Request): Promise<Response> {
   );
 
   // Réponse strictement identique à celle du cas « compte déjà existant ».
-  // Le détail (« votre accès de 24 h est actif ») est porté par l'e-mail de
+  // Le détail (accès gratuit + fonctionnalités) est porté par l'e-mail de
   // bienvenue, pas par cette réponse.
   return Response.json({ ok: true, message: REGISTER_CONFIRMATION }, { status: 201 });
 }

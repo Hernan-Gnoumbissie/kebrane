@@ -13,6 +13,7 @@ import { db } from "@kebrane/db";
 import type { Payment } from "@kebrane/db";
 import { AccessStatus, PaymentChannel, PaymentStatus } from "@kebrane/db";
 import { access, events, products } from "./index";
+import { FREE_AI_CORRECTIONS } from "./capabilities";
 import { plans } from "./plans";
 
 export type { Payment } from "@kebrane/db";
@@ -166,8 +167,18 @@ export const billing = {
         channel: request.channel,
         phone: request.phone ?? null,
         status: persistedStatus,
+        // On conserve l'URL de redirection éventuelle DANS la métadonnée : c'est
+        // ainsi que l'appelant (le checkout) récupère la page de paiement à
+        // ouvrir, et qu'un paiement inachevé pourra être repris plus tard.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata: (result.metadata ?? null) as any,
+        metadata: (result.redirectUrl
+          ? {
+              ...(result.metadata && typeof result.metadata === "object"
+                ? (result.metadata as Record<string, unknown>)
+                : {}),
+              redirectUrl: result.redirectUrl,
+            }
+          : (result.metadata ?? null)) as any,
       },
     });
 
@@ -190,10 +201,12 @@ export const billing = {
   /**
    * Confirme un paiement et OUVRE l'accès au produit.
    *
-   * **Idempotent** : c'est l'exigence centrale. Les PSP rejouent leurs webhooks,
-   * et un admin peut cliquer deux fois. Un paiement déjà confirmé est donc rendu
-   * tel quel, sans réécriture ni second événement — sinon le journal comptable
-   * compterait deux encaissements pour un seul.
+   * **Idempotent** : c'est l'exigence centrale. Les PSP rejouent leurs webhooks.
+   * Un paiement déjà confirmé n'est ni réécrit ni re-journalisé — et cette
+   * méthode renvoie alors `null`. Elle ne renvoie le paiement QUE lorsqu'elle a
+   * réellement effectué la confirmation : ainsi les effets de bord côté appelant
+   * (p. ex. l'ouverture d'accès LOCALE du produit dans la route webhook) ne
+   * s'exécutent qu'UNE fois, même si la notification arrive en double.
    */
   async confirm(
     providerName: string,
@@ -204,7 +217,7 @@ export const billing = {
       where: { provider_providerRef: { provider: providerName, providerRef } },
     });
     if (!payment) return null;
-    if (payment.status === PaymentStatus.CONFIRMED) return payment;
+    if (payment.status === PaymentStatus.CONFIRMED) return null;
 
     const confirmed = await db.payment.update({
       where: { id: payment.id },
@@ -247,6 +260,11 @@ export const billing = {
           // Le compteur repart à zéro : l'enveloppe est celle de la période
           // achetée, pas un cumul depuis la création du compte.
           aiUsedMicroUsd: 0,
+          // L'offerte est CONSOMMÉE par l'achat, pas seulement par son usage :
+          // elle sert à découvrir ce qu'on achète, et qui achète a découvert.
+          // Marquée ici, elle ne peut plus reparaître à l'expiration du pass —
+          // sans quoi chaque abonnement échu rendrait une correction gratuite.
+          freeAiCorrectionsUsed: FREE_AI_CORRECTIONS,
         },
       });
     }

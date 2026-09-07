@@ -125,6 +125,15 @@ async function linkClerkUser(clerkUserId: string): Promise<ResolvedUser | null> 
       emailVerifiedAt: new Date(),
     },
   });
+  // Bienvenue freemium, comme dans le webhook `user.created` : selon lequel des
+  // deux arrive en premier, c'est l'un OU l'autre qui crée le compte — donc un
+  // seul e-mail part. Import DYNAMIQUE : `lib/mail` tire nodemailer, et ce
+  // module est chargé par des composants serveur (cf. KB-35).
+  void (async () => {
+    const { sendMail, mailTemplates } = await import("@/lib/mail");
+    const tpl = mailTemplates.welcomeFree(created.name);
+    await sendMail(created.email, tpl.subject, tpl.html);
+  })().catch((e) => console.error("[auth/lazy-link] e-mail de bienvenue non envoyé :", e));
   void scheduleMarketingSequence(created.id).catch((e) =>
     console.error("[auth/lazy-link] planification marketing échouée :", e)
   );

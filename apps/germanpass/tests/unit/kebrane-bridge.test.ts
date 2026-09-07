@@ -13,8 +13,8 @@ describe("toKebraneAccessStatus", () => {
   const past = new Date("2026-07-01T00:00:00Z");
   const future = new Date("2026-09-01T00:00:00Z");
 
-  test("ACTIVE sans échéance → ACTIVE", () => {
-    assert.equal(toKebraneAccessStatus({ status: "ACTIVE", accessUntil: null }, now), "ACTIVE");
+  test("ACTIVE sans échéance → NONE (socle gratuit permanent, non payant)", () => {
+    assert.equal(toKebraneAccessStatus({ status: "ACTIVE", accessUntil: null }, now), "NONE");
   });
 
   test("ACTIVE avec échéance future → ACTIVE", () => {

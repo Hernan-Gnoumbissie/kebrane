@@ -20,7 +20,7 @@ export function LevelGroup({
     <details open={defaultOpen} className="group rounded-lg border bg-card">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 hover:bg-muted/40">
         <span className="flex items-center gap-2">
-          <span className="inline-flex h-6 min-w-[2rem] items-center justify-center rounded-md bg-blue-100 px-1.5 text-xs font-bold text-blue-700">
+          <span className="inline-flex h-6 min-w-[2rem] items-center justify-center rounded-md bg-info/15 px-1.5 text-xs font-bold text-info">
             {level}
           </span>
           <span className="text-sm text-muted-foreground">

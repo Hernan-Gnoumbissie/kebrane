@@ -22,7 +22,7 @@
   - **Nav transparente « glassy »** superposée au hero : logo monogramme, menu centré, **CTA pill** à droite, hamburger en appoint.
   - **Accent de marque violet/indigo** ; **sélecteur de langue en pill**.
   - À reprendre comme *codes du marché* — mais GermanPass doit **se différencier** en montrant la profondeur produit (examens blancs, feedback IA, progression), pas seulement une belle vitrine.
-  - ⚠ Direction couleur à trancher par le PO : conserver le **bleu GermanPass** (`#2563eb`) comme accent, ou basculer vers un **indigo/violet** façon Geek Institut. Voir UX-01.
+  - ✓ **Direction couleur TRANCHÉE (24 août 2026)** : l'accent GermanPass est le **Rouge de la charte `#A5322C`** (tokens Kebrane chargés via `@kebrane/ui/styles.css`), **rare (≤ 5 %)**. La question « bleu `#2563eb` vs indigo » est caduque. Geek Institut reste une référence de **mise en page**, pas de couleur. Voir `UX-PLAN-EXECUTION.md`.
 
 ### Légende
 Priorité **P1** (fondation / fort impact) · **P2** (important) · **P3** (finition).
@@ -109,7 +109,7 @@ Effort **S** (< 0,5 j) · **M** (0,5–1,5 j) · **L** (> 1,5 j).
 
 ### UX-06 · Page tarifs (mobile money) plus claire
 **Zone** Pricing (`/pricing`) · **P2** · **S/M**
-**Contexte** : paiement par Orange Money / MTN MoMo / PayPal (pas de Stripe), validation par preuve.
+**Contexte** : paiement par **mobile money — MTN Mobile Money + Orange Money** (PayPal et Stripe écartés), validation par preuve. Prix lus dynamiquement (cf. KB-34).
 **À faire** :
 - Présentation claire des formules et de ce qu'elles incluent ; mise en avant de la formule recommandée.
 - Expliquer visuellement le flux « payer → envoyer la preuve → validation admin → accès ».

@@ -149,8 +149,22 @@ model ProductAccess {
   capabilities String[]
 
   /// Enveloppe IA accordée et déjà consommée, en micro-dollars.
+  ///
+  /// N'a de sens que pour un accès PAYANT : le palier gratuit ne se compte pas
+  /// en argent mais en corrections (`freeAiCorrectionsUsed`).
   aiBudgetMicroUsd Int @default(0)
   aiUsedMicroUsd   Int @default(0)
+
+  /// Corrections OFFERTES déjà consommées (palier gratuit).
+  ///
+  /// Un COMPTE, et non une enveloppe : la promesse publique est « une correction
+  /// offerte », pas « 30 000 micro-dollars ». Exprimée en argent, elle bouge à
+  /// la moindre révision des estimations de coût — une correction, puis deux,
+  /// puis zéro. Exprimée en corrections, elle ne dépend de rien.
+  ///
+  /// JAMAIS remise à zéro par un achat (cf. `billing.confirm`) : l'offerte vaut
+  /// une fois dans la vie du compte, pas une fois par abonnement échu.
+  freeAiCorrectionsUsed Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

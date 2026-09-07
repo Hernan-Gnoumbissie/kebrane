@@ -5,7 +5,7 @@ import { TOAST_EVENT, type ToastPayload } from "@/lib/toast";
 
 const VARIANTS = {
   default: "bg-foreground text-background",
-  success: "bg-green-600 text-white",
+  success: "bg-success text-success-foreground",
   error: "bg-destructive text-destructive-foreground",
 };
 

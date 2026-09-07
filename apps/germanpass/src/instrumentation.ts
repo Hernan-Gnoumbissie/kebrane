@@ -17,6 +17,12 @@ export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { bootstrapKebrane } = await import("@kebrane/core");
   await bootstrapKebrane();
+
+  // NB : les fournisseurs de paiement (PSP) ne sont PAS enregistrés ici. Les y
+  // enregistrer forçait l'instrumentation à importer les adaptateurs (node:crypto),
+  // que Next compile AUSSI pour le runtime Edge — d'où un échec de compilation.
+  // L'enregistrement se fait desormais au POINT D'USAGE, idempotent, via
+  // `ensurePaymentProviders()` (apps/germanpass/src/lib/payments.ts).
 }
 
 export async function onRequestError(

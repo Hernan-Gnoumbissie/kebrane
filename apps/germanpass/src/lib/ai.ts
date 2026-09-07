@@ -20,6 +20,13 @@ const PRICING: Record<string, { in: number; out: number }> = {
   "gpt-4o-mini": { in: 0.15, out: 0.6 },
   "text-embedding-3-small": { in: 0.02, out: 0 },
   "tts-1": { in: 15, out: 0 }, // USD / 1M caractères
+  // gpt-4o-mini-tts est facturé 0,60 $/1M caractères en entrée PLUS 12 $/1M
+  // tokens audio en sortie. On ne mesure pas les tokens audio (l'API ne les
+  // renvoie pas sur cet endpoint), donc ce tarif est un ÉQUIVALENT par
+  // caractère : ~0,015 $/min d'audio, à ~15 caractères/seconde de parole
+  // allemande, soit ~16,7 $/1M caractères, plus les 0,60 $ d'entrée.
+  // Approximation assumée pour le suivi budgétaire, pas une facture.
+  "gpt-4o-mini-tts": { in: 17.3, out: 0 },
   "whisper-1": { in: 6_000, out: 0 }, // USD / 1M secondes ≈ 0,006 $/min ≈ 0,0001 $/s
 };
 
@@ -82,13 +89,17 @@ async function logUsage(params: {
     .create({ data: { ...params, costUsd } })
     .catch(() => undefined);
 
-  // Régularisation de l'enveloppe Kebrane (KB-13) : la réserve prise avant
-  // l'appel reposait sur une estimation ; ici on connaît le coût réel. Même en
-  // cas d'échec de l'appel : les tokens consommés sont facturés quand même.
+  // Régularisation de l'enveloppe Kebrane (KB-13).
+  //  - Succès : on ajuste la réserve estimée au coût réel mesuré.
+  //  - Échec / sortie inexploitable : REMBOURSEMENT INTÉGRAL de la réserve
+  //    (invariant C — un membre ne perd jamais une correction qu'il n'a pas
+  //    reçue). Le coût réel des tokens éventuellement consommés reste tracé
+  //    dans ai_usage ci-dessus (NOTRE coût), mais n'est pas imputé au membre.
   await settleKebraneAi({
     userId: params.userId,
     kind: params.kind,
     actualMicroUsd: Math.round(costUsd * 1_000_000),
+    success: params.success,
   });
 }
 
@@ -109,6 +120,13 @@ export async function chatCompletion(params: {
   user: string;
   jsonMode?: boolean;
   temperature?: number;
+  /**
+   * Validation de la charge utile (invariant C). Appelée DANS le try, donc un
+   * rejet compte comme un échec → réserve remboursée. Permet au caller de
+   * déclarer une réponse « bien formée mais inexploitable » (mauvais schéma)
+   * sans avoir déjà été facturé.
+   */
+  validate?: (parsedJson: unknown) => void;
 }): Promise<string> {
   await checkBudget(params.userId, params.kind);
   const model = params.model ?? env.AI_MODEL_EVALUATION;
@@ -137,6 +155,17 @@ export async function chatCompletion(params: {
     usage = data.usage ?? usage;
     const content = data.choices[0]?.message.content;
     if (!content) throw new Error("Réponse IA vide");
+    // Validation AVANT de compter le succès : une réponse en JSON invalide ou de
+    // mauvais schéma est un échec (→ remboursement), pas une correction rendue.
+    if (params.jsonMode) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        throw new Error("Réponse IA en JSON invalide");
+      }
+      params.validate?.(parsed);
+    }
     await logUsage({
       userId: params.userId,
       kind: params.kind,
@@ -254,24 +283,39 @@ export async function transcribeImage(params: {
   }
 }
 
-/** TTS : retourne le binaire audio (mp3). */
+/**
+ * TTS : retourne le binaire audio.
+ *
+ * `format` par défaut mp3 — comportement historique inchangé. Le pipeline des
+ * dialogues Hören demande `pcm` : il assemble les répliques échantillon par
+ * échantillon puis encode une seule fois (voir lib/hoeren/pcm.ts).
+ *
+ * `instructions` n'est accepté que par les modèles récents ; `tts-1` et
+ * `tts-1-hd` répondent 400 si on l'envoie. C'est à l'appelant de trancher —
+ * `supporteInstructions()` dans lib/hoeren/instructions.ts.
+ */
 export async function tts(params: {
   text: string;
   voice: string;
   speed: number;
   userId?: string | null;
+  model?: string;
+  format?: "mp3" | "pcm" | "wav" | "opus" | "aac" | "flac";
+  instructions?: string;
 }): Promise<Buffer> {
   const start = Date.now();
+  const model = params.model ?? env.TTS_MODEL;
   const res = await fetch(`${env.AI_BASE_URL}/audio/speech`, {
     method: "POST",
     headers: aiHeaders(),
     signal: AbortSignal.timeout(AI_AUDIO_TIMEOUT_MS),
     body: JSON.stringify({
-      model: env.TTS_MODEL,
+      model,
       input: params.text,
       voice: params.voice,
       speed: params.speed,
-      response_format: "mp3",
+      response_format: params.format ?? "mp3",
+      ...(params.instructions ? { instructions: params.instructions } : {}),
     }),
   });
   if (!res.ok) throw new Error(`TTS ${res.status}: ${await res.text()}`);
@@ -279,7 +323,7 @@ export async function tts(params: {
   await logUsage({
     userId: params.userId ?? null,
     kind: "tts",
-    model: env.TTS_MODEL,
+    model,
     inputTokens: params.text.length,
     outputTokens: 0,
     latencyMs: Date.now() - start,

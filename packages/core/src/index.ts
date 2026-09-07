@@ -14,14 +14,26 @@ export { PRODUCT_REGISTRY, type ProductDefinition } from "./registry";
 export {
   CAPABILITIES,
   ALL_CAPABILITIES,
+  CAPABILITY_LABELS,
   FREE_CAPABILITIES,
+  FREE_AI_CORRECTIONS,
   FREE_AI_BUDGET_MICRO_USD,
   MICRO_USD_PER_USD,
+  ESTIMATED_WRITING_CORRECTION_MICRO_USD,
+  capabilityLabel,
+  estimatedWritingCorrections,
   isKnownCapability,
   type Capability,
 } from "./capabilities";
 // Catalogue des offres (KB-13) — la BASE dit ce qui est vendu.
-export { plans, PLAN_REGISTRY, type PlanDefinition, type Plan } from "./plans";
+export {
+  plans,
+  PLAN_REGISTRY,
+  type PlanDefinition,
+  type PlanUpdate,
+  type PlanCatalogueEntry,
+  type Plan,
+} from "./plans";
 // Droits effectifs + enveloppe IA (KB-13).
 export { entitlements, type Entitlement } from "./entitlements";
 // Catalogue d'événements et notifications (KB-14).
@@ -41,6 +53,8 @@ export {
   type NotificationChannel,
   type NotificationMessage,
 } from "./notifications";
+// Droits RGPD actionnables : export et effacement (KB-28).
+export { privacy, type AccountExport } from "./privacy";
 // Amorçage des services optionnels (KB-21).
 export { bootstrapKebrane } from "./bootstrap";
 // Indicateurs de pilotage (KB-15).
@@ -63,6 +77,14 @@ export {
   type CollectionResult,
   type WebhookResult,
 } from "./billing";
+
+// Adaptateurs PSP (KB-13) : PAS ré-exportés ici, à dessein. Un import statique
+// depuis l'index les tirerait dans le graphe Edge (via lib/kebrane), où leurs
+// builtins Node (node:crypto) ne sont pas supportés — d'où un échec de
+// compilation de l'instrumentation. Ils sont exposés en SOUS-CHEMIN
+// (`@kebrane/core/providers/paydunya` | `/fapshi`) et importés DYNAMIQUEMENT au
+// point d'usage (cf. apps/germanpass/src/lib/payments.ts). Même principe que
+// `./notifications-smtp` pour nodemailer (KB-35).
 
 type Severity = "INFO" | "IMPORTANT" | "ACTION_REQUIRED";
 
@@ -91,6 +113,11 @@ export const accounts = {
 
   findByEmail(email: string): Promise<Account | null> {
     return db.account.findUnique({ where: { email: email.toLowerCase() } });
+  },
+
+  /** Résout un compte par son id Kebrane (mapping paiement → compte). */
+  findById(id: string): Promise<Account | null> {
+    return db.account.findUnique({ where: { id } });
   },
 
   /**
@@ -225,8 +252,22 @@ export const accounts = {
 
 /** Registre des produits de la maison Kebrane. */
 export const products = {
+  /** Tous les produits, y compris retirés — vue d'administration. */
   list(): Promise<Product[]> {
     return db.product.findMany({ orderBy: { createdAt: "asc" } });
+  },
+  /**
+   * Produits montrables au public : tout sauf `DISABLED`.
+   *
+   * `DISABLED` veut dire « retiré du catalogue ». Sans ce filtre, un produit
+   * retiré s'affichait quand même — en « Bientôt disponible », c'est-à-dire en
+   * PROMESSE, ce qui est exactement le contraire de ce que le statut demande.
+   */
+  listPublic(): Promise<Product[]> {
+    return db.product.findMany({
+      where: { status: { not: ProductStatus.DISABLED } },
+      orderBy: { createdAt: "asc" },
+    });
   },
   bySlug(slug: string): Promise<Product | null> {
     return db.product.findUnique({ where: { slug } });

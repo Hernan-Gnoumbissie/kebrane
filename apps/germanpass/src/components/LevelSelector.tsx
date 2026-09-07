@@ -1,5 +1,6 @@
 "use client";
 
+import { Lock, MapPin, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -8,7 +9,7 @@ export type Level = (typeof LEVEL_ORDER)[number];
 interface Props {
   /** Niveau actuellement débloqué par l'utilisateur (ex. "B1"). Fallback "A1" si absent. */
   currentLevel?: string | null;
-  /** Niveau visé déclaré par l'utilisateur (affiche 🎯). */
+  /** Niveau visé déclaré par l'utilisateur (mis en avant par une icone). */
   targetLevel?: string | null;
   /** Niveau sélectionné. */
   selected: string;
@@ -33,11 +34,11 @@ export function LevelSelector({ currentLevel, targetLevel, selected, onChange }:
         const prevLevel = LEVEL_ORDER[idx - 1] ?? effectiveCurrent;
 
         const tooltipMsg = isLocked
-          ? `🔒 Niveau ${level} verrouillé — Atteins 70 % de score moyen en ${prevLevel} pour le débloquer`
+          ? `Niveau ${level} verrouillé — Atteins 70 % de score moyen en ${prevLevel} pour le débloquer`
           : isCurrent
-          ? `📍 Ton niveau actuel`
+          ? `Ton niveau actuel`
           : isTarget
-          ? `🎯 Ton objectif déclaré`
+          ? `Ton objectif déclaré`
           : level;
 
         return (
@@ -50,15 +51,23 @@ export function LevelSelector({ currentLevel, targetLevel, selected, onChange }:
             aria-pressed={isSelected}
             onClick={() => !isLocked && onChange(level)}
             className={cn(
-              "rounded-full px-3 py-1 text-sm font-medium border transition-colors",
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors",
               isLocked && "opacity-40 cursor-not-allowed bg-muted text-muted-foreground border-transparent",
               !isLocked && isSelected && "bg-primary text-primary-foreground border-primary",
               !isLocked && !isSelected && "bg-background text-foreground border-border hover:bg-secondary",
             )}
           >
-            {isLocked ? "🔒 " : isCurrent && isSelected ? "📍 " : ""}
+            {/* Icônes décoratives : le statut est déjà porté par `aria-label`
+                (= `tooltipMsg`), donc rien n'est perdu pour un lecteur d'écran. */}
+            {isLocked ? (
+              <Lock aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : isCurrent && isSelected ? (
+              <MapPin aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : null}
             {level}
-            {isTarget && !isLocked ? " 🎯" : ""}
+            {isTarget && !isLocked ? (
+              <Target aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : null}
           </button>
         );
       })}

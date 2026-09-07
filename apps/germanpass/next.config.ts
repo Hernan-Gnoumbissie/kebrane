@@ -74,6 +74,32 @@ const nextConfig: NextConfig = {
   // l'ambiguïté avec la config webpack injectée par serwist (qui ne sert qu'au
   // `build --webpack`), sinon Turbopack refuse de démarrer en dev.
   turbopack: {},
+  /**
+   * `nodemailer` externalise POUR LE RUNTIME EDGE UNIQUEMENT (KB-35).
+   *
+   * `instrumentation.ts` garde deja son execution (`NEXT_RUNTIME !== "nodejs"`
+   * ⇒ retour immediat) et importe `@kebrane/core` dynamiquement. Mais une garde
+   * d'EXECUTION n'empeche pas le BUNDLING : webpack resout les imports
+   * dynamiques comme les autres, et `next dev` compile l'instrumentation pour
+   * les deux runtimes. Cote edge, `nodemailer` demande `stream`, qui n'y existe
+   * pas — d'ou `Module not found: Can't resolve 'stream'` et une application en
+   * 500 des la premiere requete.
+   *
+   * Turbopack elimine cette branche morte, pas webpack. Le probleme ne se voit
+   * donc qu'avec `next dev --webpack` ; `next build --webpack` passe, verifie.
+   *
+   * On externalise plutot que d'ajouter un `resolve.fallback` : il n'y a rien a
+   * remplacer, ce code ne doit simplement JAMAIS s'executer sur edge.
+   */
+  webpack: (config, { nextRuntime }) => {
+    if (nextRuntime === "edge") {
+      const externals = Array.isArray(config.externals)
+        ? config.externals
+        : [config.externals].filter(Boolean);
+      config.externals = [...externals, "nodemailer"];
+    }
+    return config;
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",

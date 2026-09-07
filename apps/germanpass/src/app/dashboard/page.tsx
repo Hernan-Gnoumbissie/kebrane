@@ -1,12 +1,32 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  ArrowRight,
+  BookOpen,
+  Check,
+  ClipboardList,
+  Clock,
+  Layers,
+  Lock,
+  MapPin,
+  Mic,
+  PenLine,
+  Puzzle,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { auth } from "@/auth";
+import { cn } from "@/lib/utils";
+import { Alert } from "@/components/ui/alert";
+import { StatCard } from "@/components/ui/stat-card";
+import { tendanceScore } from "@/lib/tendance";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProgressData, SECTION_LABEL } from "@/lib/progress";
 import { ScoreLineChart, Donut, HBar } from "@/components/charts";
 import { TASK_FORMAT_LABELS } from "@/lib/content-enums";
+import { UNLOCK_MIN_SESSIONS, UNLOCK_THRESHOLD_PCT } from "@/lib/level-progression";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -52,6 +72,9 @@ export default async function DashboardPage({
         ) / 10
       : 0;
   const recentHistory = p.history.slice(-12);
+  // Tendance calculee sur l'historique complet, pas sur les 12 derniers points
+  // affiches : le graphique tronque pour rester lisible, la tendance non.
+  const tendance = tendanceScore(p.history);
   const hasData = p.history.length > 0 || p.sections.length > 0;
 
   // Seuil d'urgence : ≤ 3 jours restants
@@ -62,66 +85,127 @@ export default async function DashboardPage({
     <main className="container space-y-5 py-6 md:py-10">
       {/* ── Bannière bienvenue trial ── */}
       {isTrial && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-          <p className="font-semibold text-base">🎉 Bienvenue sur GermanPass !</p>
-          <p className="mt-1">
+        <Alert variant="info" titre="Bienvenue sur GermanPass">
+          <p>
             Votre essai gratuit de <strong>24 heures</strong> est actif. Explorez librement toutes
             les fonctionnalités — Lesen, Hören, Schreiben, Sprechen, examens blancs et apprentissage.
           </p>
-          <Link href="/pricing" className="mt-2 inline-block underline font-medium">
-            Voir les formules d&apos;accès →
+          <Link href="/pricing" className="mt-2 inline-block font-medium underline">
+            Voir les formules d&apos;accès
           </Link>
-        </div>
+        </Alert>
       )}
 
       {/* ── Alerte expiration imminente (≤ 3 j) ── */}
       {!isTrial && isExpiring && !isExpired && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          <p className="font-semibold">⚠️ Accès expirant bientôt</p>
-          <p className="mt-1">
+        <Alert variant="warning" titre="Accès expirant bientôt">
+          <p>
             Il vous reste <strong>{daysLeft} jour{daysLeft > 1 ? "s" : ""}</strong>. Renouvelez
             dès maintenant pour ne pas interrompre votre préparation.
           </p>
-          <Link href="/pricing" className="mt-2 inline-block underline font-medium">
-            Renouveler mon accès →
+          <Link href="/pricing" className="mt-2 inline-block font-medium underline">
+            Renouveler mon accès
           </Link>
-        </div>
+        </Alert>
       )}
 
       {/* ── Accès expiré ── */}
       {isExpired && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">🔒 Votre accès a expiré</p>
-          <p className="mt-1">Renouvelez votre abonnement pour reprendre votre préparation.</p>
-          <Link href="/pricing" className="mt-2 inline-block underline font-medium">
-            Renouveler mon accès →
+        <Alert variant="error" titre="Votre accès a expiré">
+          <p>Renouvelez votre abonnement pour reprendre votre préparation.</p>
+          <Link href="/pricing" className="mt-2 inline-block font-medium underline">
+            Renouveler mon accès
           </Link>
-        </div>
+        </Alert>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Bonjour {(user.name ?? "").split(" ")[0]} 👋</h1>
+          <h1 className="text-2xl font-bold md:text-3xl">
+            Bonjour {(user.name ?? "").split(" ")[0]}
+          </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Jour <strong>{prepDay}</strong> de votre préparation
             {p.target.level ? ` vers le ${p.target.level}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          <span className={`rounded-full border px-3 py-1 ${isExpiring ? "border-amber-400 bg-amber-50 text-amber-800 font-medium" : ""}`}>
-            ⏳ {daysLeft ?? "—"} jours d&apos;accès
-          </span>
+          {/* Pas d'échéance = pas de badge. Il affichait « — jours d'accès »,
+              ce qui ne veut rien dire ; c'est le cas des comptes sans date
+              d'expiration, dont les administrateurs. */}
+          {daysLeft !== null ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1",
+                isExpiring && "border-warning/40 bg-warning/10 font-medium"
+              )}
+            >
+              <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+              {daysLeft} jour{daysLeft > 1 ? "s" : ""} d&apos;accès
+            </span>
+          ) : null}
           {p.target.provider || p.target.level ? (
-            <span className="rounded-full border px-3 py-1">
-              🎯 {p.target.provider ?? ""} {p.target.level ?? ""}
+            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1">
+              <Target aria-hidden="true" className="h-3.5 w-3.5" />
+              {p.target.provider ?? ""} {p.target.level ?? ""}
             </span>
           ) : (
-            <Link href="/account" className="rounded-full border px-3 py-1 underline">
-              🎯 Définir mon objectif
+            <Link
+              href="/account"
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 underline"
+            >
+              <Target aria-hidden="true" className="h-3.5 w-3.5" />
+              Définir mon objectif
             </Link>
           )}
         </div>
       </div>
+
+      {/* ── Chiffres clés ──
+          Affichés seulement s'il y a de quoi les remplir : une rangée de zéros
+          le premier jour décourage au lieu d'informer. */}
+      {hasData ? (
+        <div
+          className={cn(
+            "grid gap-3 sm:grid-cols-2",
+            hasLearn ? "lg:grid-cols-4" : "lg:grid-cols-3"
+          )}
+        >
+          {/* La règle complète, pas sa moitié flatteuse : le seuil de score ne
+              vaut rien sans le nombre de sessions qui le rend significatif. */}
+          <StatCard
+            icone={Target}
+            label={`Score moyen · ${effectiveLevel}`}
+            valeur={`${currentLevelAvgPct} %`}
+            precision={`${UNLOCK_THRESHOLD_PCT} % sur ${UNLOCK_MIN_SESSIONS} sessions pour passer au niveau suivant`}
+            tendance={tendance}
+          />
+          <StatCard
+            icone={ClipboardList}
+            label="Sessions corrigées"
+            valeur={currentLevelSessions}
+            precision={`au niveau ${effectiveLevel} · ${UNLOCK_MIN_SESSIONS} requises pour progresser`}
+          />
+          <StatCard
+            icone={PenLine}
+            label="Productions évaluées"
+            valeur={p.production.writingCount + p.production.speakingCount}
+            precision={`${p.production.writingCount} écrites · ${p.production.speakingCount} orales`}
+          />
+          {/* Quatrième carte seulement avec le parcours complet — et on y met
+              une information ACTIONNABLE. « Jour de préparation » et « jours
+              d'accès » figurent déjà dans l'en-tête juste au-dessus : les
+              répéter aurait rempli la grille sans rien apprendre. */}
+          {hasLearn ? (
+            <StatCard
+              icone={Layers}
+              label="Cartes à réviser"
+              valeur={p.dueCards}
+              precision={`${p.lessonsDone} leçon${p.lessonsDone > 1 ? "s" : ""} terminée${p.lessonsDone > 1 ? "s" : ""}`}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Barre de progression CECRL ── */}
       <LevelProgressStrip
@@ -141,8 +225,8 @@ export default async function DashboardPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/practice" className={buttonVariants()}>
-              Premier entraînement Lesen/Hören
+            <Link href="/practice/lesen" className={buttonVariants()}>
+              Premier entraînement Lesen
             </Link>
           </CardContent>
         </Card>
@@ -151,7 +235,10 @@ export default async function DashboardPage({
       {p.plan.length > 0 ? (
         <Card className="border-primary/50">
           <CardHeader>
-            <CardTitle className="text-lg">📋 Mon plan d&apos;amélioration</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ClipboardList aria-hidden="true" className="h-4 w-4 text-primary" />
+              Mon plan d&apos;amélioration
+            </CardTitle>
             <CardDescription>
               Généré à partir de vos résultats — mis à jour à chaque entraînement.
             </CardDescription>
@@ -181,10 +268,30 @@ export default async function DashboardPage({
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">📈 Évolution de mes scores</CardTitle>
-              <CardDescription>
-                {recentHistory.length} dernière(s) session(s) — ligne verte : seuil de réussite (60 %).
-              </CardDescription>
+              {/* Titre, sous-titre et lien d'action : les trois détails qui
+                  donnaient à l'écran d'administration son air fini. Le lien
+                  transforme un graphique en point de départ plutôt qu'en
+                  cul-de-sac. */}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                    Évolution de mes scores
+                  </CardTitle>
+                  <CardDescription>
+                    {recentHistory.length} dernière{recentHistory.length > 1 ? "s" : ""} session
+                    {recentHistory.length > 1 ? "s" : ""} — le pointillé marque le seuil de
+                    réussite (60 %).
+                  </CardDescription>
+                </div>
+                <Link
+                  href="/progress"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  Ma progression
+                  <ArrowRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
               {recentHistory.length > 0 ? (
@@ -197,8 +304,24 @@ export default async function DashboardPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">🎯 Réussite par compétence</CardTitle>
-              <CardDescription>Sur vos dernières réponses corrigées.</CardDescription>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Target aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                    Réussite par compétence
+                  </CardTitle>
+                  <CardDescription>
+                    Sur vos dernières réponses corrigées — vert au-dessus de 60 %.
+                  </CardDescription>
+                </div>
+                <Link
+                  href="/practice/lesen"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  S&apos;entraîner
+                  <ArrowRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
               {p.sections.length > 0 ? (
@@ -210,13 +333,34 @@ export default async function DashboardPage({
               ) : (
                 <p className="text-sm text-muted-foreground">Pas encore de réponses corrigées.</p>
               )}
-              <p className="mt-4 border-t pt-3 text-sm text-muted-foreground">
-                ✍️ {p.production.writingCount} Schreiben · 🎙 {p.production.speakingCount} Sprechen
-                {p.production.lastEstimatedLevel
-                  ? ` · dernier niveau estimé : ${p.production.lastEstimatedLevel}`
-                  : ""}
-                {hasLearn ? ` · 📚 ${p.lessonsDone} leçon(s) · 🃏 ${p.dueCards} carte(s) à réviser` : ""}
-              </p>
+              {/* Compteurs de production. Les icônes remplacent les emojis mais
+                  ne portent aucune information seules : chaque valeur reste
+                  lisible en texte. */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t pt-3 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <PenLine aria-hidden="true" className="h-3.5 w-3.5" />
+                  {p.production.writingCount} Schreiben
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Mic aria-hidden="true" className="h-3.5 w-3.5" />
+                  {p.production.speakingCount} Sprechen
+                </span>
+                {p.production.lastEstimatedLevel ? (
+                  <span>dernier niveau estimé : {p.production.lastEstimatedLevel}</span>
+                ) : null}
+                {hasLearn ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5">
+                      <BookOpen aria-hidden="true" className="h-3.5 w-3.5" />
+                      {p.lessonsDone} leçon(s)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers aria-hidden="true" className="h-3.5 w-3.5" />
+                      {p.dueCards} carte(s) à réviser
+                    </span>
+                  </>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -225,8 +369,24 @@ export default async function DashboardPage({
       {p.formats.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">🧩 Par type de tâche</CardTitle>
-            <CardDescription>Du plus faible au plus fort (minimum 5 réponses).</CardDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Puzzle aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  Par type de tâche
+                </CardTitle>
+                <CardDescription>
+                  Du plus faible au plus fort — les premiers sont ceux à travailler.
+                </CardDescription>
+              </div>
+              <Link
+                href="/practice/lesen"
+                className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                S&apos;entraîner
+                <ArrowRight aria-hidden="true" className="h-3 w-3" />
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {p.formats.slice(0, 6).map((f) => (
@@ -246,8 +406,11 @@ export default async function DashboardPage({
           <CardTitle className="text-base">Accès rapide</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Link href="/practice" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Lesen/Hören
+          <Link href="/practice/lesen" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Lesen
+          </Link>
+          <Link href="/practice/hoeren" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Hören
           </Link>
           <Link href="/practice/schreiben" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Schreiben
@@ -288,6 +451,17 @@ function LevelProgressStrip({
     : "A1";
   const currentIdx = ALL_LEVELS.indexOf(currentLevel as (typeof ALL_LEVELS)[number]);
 
+  // Les DEUX conditions de `checkAndUnlockNextLevel`, telles quelles.
+  const sessionsSuffisantes = sessions >= UNLOCK_MIN_SESSIONS;
+  const scoreSuffisant = avgPct >= UNLOCK_THRESHOLD_PCT;
+  // La barre suit la condition la moins avancée, jamais la plus flatteuse.
+  const pctDeblocage = Math.round(
+    Math.min(
+      (Math.min(sessions, UNLOCK_MIN_SESSIONS) / UNLOCK_MIN_SESSIONS) * 100,
+      (Math.min(avgPct, UNLOCK_THRESHOLD_PCT) / UNLOCK_THRESHOLD_PCT) * 100
+    )
+  );
+
   return (
     <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -304,22 +478,26 @@ function LevelProgressStrip({
           return (
             <div key={level} className="flex items-center gap-1.5">
               <div
-                className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
-                  isCurrent
-                    ? "bg-primary text-primary-foreground"
-                    : isMastered
-                      ? "bg-green-100 text-green-800"
-                      : "bg-muted text-muted-foreground opacity-60"
-                }`}
-              >
-                {isMastered ? (
-                  <span>{level} ✅</span>
-                ) : isCurrent ? (
-                  <span>📍 {level}</span>
-                ) : (
-                  <span>🔒 {level}</span>
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
+                  isCurrent && "bg-primary text-primary-foreground",
+                  isMastered && "bg-success/15 text-success",
+                  isLocked && "bg-muted text-muted-foreground opacity-60"
                 )}
-                {isTarget ? <span className="ml-1">🎯</span> : null}
+              >
+                {/* L'icône double le statut, elle ne le remplace pas : le niveau
+                    reste écrit, et `title` le nomme pour les lecteurs d'écran. */}
+                {isMastered ? (
+                  <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                ) : isCurrent ? (
+                  <MapPin aria-hidden="true" className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock aria-hidden="true" className="h-3.5 w-3.5" />
+                )}
+                <span>{level}</span>
+                {isTarget ? (
+                  <Target aria-hidden="true" className="ml-0.5 h-3.5 w-3.5 text-accent" />
+                ) : null}
               </div>
               {idx < ALL_LEVELS.length - 1 && (
                 <span className={`text-xs ${isLocked ? "text-muted-foreground/40" : "text-muted-foreground"}`}>
@@ -331,21 +509,54 @@ function LevelProgressStrip({
         })}
       </div>
       {/* Progression au niveau actuel */}
-      <div className="text-xs text-muted-foreground space-y-1">
-        <div className="flex items-center gap-2">
+      {/* Le déblocage exige DEUX conditions : au moins 5 sessions ET 70 % de
+          moyenne. On n'en affichait qu'une — la barre était pleine et verte à
+          100 % sur 3 sessions, alors que le niveau suivant restait verrouillé.
+          Annoncer un seuil atteint devant une porte fermée est pire que ne rien
+          annoncer : l'apprenant croit avoir réussi et ne comprend pas. */}
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>
-            Niveau {currentLevel} — {sessions} session{sessions !== 1 ? "s" : ""}, score moyen{" "}
-            <strong>{avgPct} %</strong> / 70 % requis
+            Niveau {currentLevel} —{" "}
+            <strong className={cn(sessionsSuffisantes && "text-success")}>
+              {sessions}/{UNLOCK_MIN_SESSIONS}
+            </strong>{" "}
+            session{UNLOCK_MIN_SESSIONS > 1 ? "s" : ""}
+          </span>
+          <span>
+            score moyen{" "}
+            <strong className={cn(scoreSuffisant && "text-success")}>{avgPct} %</strong> /{" "}
+            {UNLOCK_THRESHOLD_PCT} % requis
           </span>
         </div>
         {sessions > 0 ? (
-          <div className="h-1.5 w-full max-w-xs rounded-full bg-muted overflow-hidden">
+          <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted">
+            {/* La barre suit la condition la MOINS avancée : elle ne peut plus
+                afficher « plein » tant que le niveau ne se débloque pas. */}
             <div
-              className={`h-full rounded-full transition-all ${avgPct >= 70 ? "bg-green-500" : "bg-primary"}`}
-              style={{ width: `${Math.min(avgPct, 100)}%` }}
+              className={cn(
+                "h-full rounded-full transition-all",
+                pctDeblocage >= 100 ? "bg-success" : "bg-primary"
+              )}
+              style={{ width: `${pctDeblocage}%` }}
               aria-hidden="true"
             />
           </div>
+        ) : null}
+        {!sessionsSuffisantes ? (
+          <p>
+            Encore{" "}
+            <strong>
+              {UNLOCK_MIN_SESSIONS - sessions} session
+              {UNLOCK_MIN_SESSIONS - sessions > 1 ? "s" : ""}
+            </strong>{" "}
+            d&apos;entraînement pour pouvoir débloquer le niveau suivant.
+          </p>
+        ) : !scoreSuffisant ? (
+          <p>
+            Il vous manque {UNLOCK_THRESHOLD_PCT - Math.round(avgPct)} points de moyenne pour
+            débloquer le niveau suivant.
+          </p>
         ) : null}
       </div>
     </div>

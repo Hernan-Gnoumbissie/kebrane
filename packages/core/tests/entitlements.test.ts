@@ -99,6 +99,115 @@ describe("entitlements", () => {
       assert.equal(second.reason, "budget");
       assert.equal(await countEvents(account.id, "ai_budget.exhausted"), 1);
     });
+
+    test("l'estimation du coût ne décide pas du nombre de corrections offertes", async () => {
+      // Le gratuit promet UNE correction, pas une somme d'argent. Si le droit se
+      // décidait sur le coût estimé, réviser cette estimation à la hausse
+      // supprimerait l'offerte, et à la baisse en ajouterait une seconde. On le
+      // vérifie avec une estimation absurde dans les deux sens.
+      const { account, slug } = await fixture("free-estimation");
+
+      const chere = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: FREE_AI_BUDGET_MICRO_USD * 50,
+      });
+      assert.equal(chere.allowed, true, "un modèle plus cher ne supprime pas l'offerte");
+
+      const bonMarche = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: 1,
+      });
+      assert.equal(bonMarche.allowed, false, "un modèle moins cher n'en ajoute pas une seconde");
+      assert.equal(bonMarche.reason, "budget");
+    });
+
+    test("l'offerte porte sur l'écrit, pas sur l'oral", async () => {
+      // L'oral coûte 2 à 3 fois plus. Le compte gratuit y a DROIT (la capacité
+      // est dans FREE_CAPABILITIES) mais n'a rien pour le payer : le refus doit
+      // donc parler d'enveloppe, pas de capacité — « prenez une formule », et
+      // non « cela n'existe pas pour vous ».
+      const { account, slug } = await fixture("free-oral");
+
+      const oral = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_SPEAKING,
+        estimatedMicroUsd: 60_000,
+      });
+      assert.equal(oral.allowed, false);
+      assert.equal(oral.reason, "budget", "refus d'enveloppe, pas de capacité");
+
+      // Et l'offerte écrite reste entière : l'oral refusé n'a rien consommé.
+      const ecrit = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: 25_000,
+      });
+      assert.equal(ecrit.allowed, true);
+    });
+
+    test("un échec rend l'offerte, et une seule fois", async () => {
+      // Invariant C côté Core : ce qui a été débité est une correction, c'est
+      // donc une correction qu'il faut rendre — et un remboursement rejoué ne
+      // doit pas en créditer une deuxième.
+      const { account, slug } = await fixture("free-remboursement");
+      await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: 25_000,
+      });
+
+      await entitlements.refundAi(account.id, slug, 25_000);
+      await entitlements.refundAi(account.id, slug, 25_000);
+
+      const e = await entitlements.forProduct(account.id, slug);
+      assert.equal(e.aiRemainingMicroUsd, FREE_AI_BUDGET_MICRO_USD, "l'offerte est rendue");
+
+      const reprise = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: 25_000,
+      });
+      assert.equal(reprise.allowed, true);
+      const apres = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: 25_000,
+      });
+      assert.equal(apres.allowed, false, "deux remboursements n'ont pas offert deux corrections");
+    });
+
+    test("débit ATOMIQUE : deux corrections simultanées ne consomment pas deux fois la dernière enveloppe", async () => {
+      // Invariant : quand il ne reste qu'une enveloppe, des demandes concurrentes
+      // ne doivent pas toutes passer (sinon un compte gratuit obtiendrait
+      // plusieurs corrections « offertes »). Échoue sur un check-then-write ;
+      // passe avec le débit conditionnel atomique.
+      const { account, slug } = await fixture("race");
+      const N = 5;
+      const résultats = await Promise.all(
+        Array.from({ length: N }, () =>
+          entitlements.reserveAi({
+            accountId: account.id,
+            productSlug: slug,
+            capability: CAPABILITIES.CORRECTION_WRITING,
+            estimatedMicroUsd: FREE_AI_BUDGET_MICRO_USD,
+          })
+        )
+      );
+      const acceptées = résultats.filter((r) => r.allowed).length;
+      assert.equal(acceptées, 1, `une seule demande doit passer, obtenu ${acceptées}`);
+
+      const e = await entitlements.forProduct(account.id, slug);
+      assert.equal(e.aiRemainingMicroUsd, 0, "le compteur ne dépasse jamais le budget");
+    });
   });
 
   describe("après paiement", () => {
@@ -171,6 +280,34 @@ describe("entitlements", () => {
         0,
         "laisser expirer ne doit pas rendre la correction offerte à nouveau"
       );
+    });
+
+    test("l'offerte ne revient pas après expiration, même sans avoir servi", async () => {
+      // Cas que le compteur en micro-dollars laissait passer : acheter sans rien
+      // consommer, puis laisser expirer. L'enveloppe premium repartait à zéro,
+      // le gratuit la relisait vide, et le compte retrouvait une correction
+      // « offerte ». L'offerte sert à découvrir ce qu'on achète : qui a acheté a
+      // découvert.
+      const { account, slug } = await acheter("expired-vierge");
+      const product = await products.bySlug(slug);
+
+      await db.productAccess.update({
+        where: { accountId_productId: { accountId: account.id, productId: product!.id } },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+
+      const e = await entitlements.forProduct(account.id, slug);
+      assert.equal(e.paid, false);
+      assert.equal(e.aiRemainingMicroUsd, 0, "l'achat a consommé l'offerte");
+
+      const reprise = await entitlements.reserveAi({
+        accountId: account.id,
+        productSlug: slug,
+        capability: CAPABILITIES.CORRECTION_WRITING,
+        estimatedMicroUsd: 25_000,
+      });
+      assert.equal(reprise.allowed, false);
+      assert.equal(reprise.reason, "budget");
     });
   });
 
